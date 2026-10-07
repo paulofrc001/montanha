@@ -68,9 +68,10 @@ export default function App() {
   const lastDodgeTimeRef = useRef<number>(0);
   const nextMoveTimerRef = useRef<number>(0);
 
-  // Set character speech with auto-dismiss
+  // Set character speech with auto-dismiss and comical cartoon vocalization
   const setSpeech = useCallback((text: string, duration = 3000) => {
     setSpeechText(text);
+    sounds.playMontanhaSpeech(text);
     if (speechTimerRef.current) {
       clearTimeout(speechTimerRef.current);
     }
@@ -97,8 +98,9 @@ export default function App() {
     setDodgesCount((d) => d + 1);
     setFartsCount((f) => f + 1);
 
-    // Play swift cartoon dodge whoosh sound
+    // Play swift cartoon dodge whoosh sound and comical flatulence asynchronously
     sounds.playWhooshDodge();
+    sounds.playFart();
 
     // Trigger visual fart cloud & screen shake
     setShowDodgeFart(true);

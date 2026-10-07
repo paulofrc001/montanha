@@ -1,5 +1,6 @@
 import React from 'react';
 import { RunnerObstacle, RunnerCollectible, WaterAttack } from '../../types';
+import { Fase2ParticleSystem } from './Fase2ParticleSystem';
 
 export interface FloatingTextItem {
   id: number;
@@ -10,16 +11,87 @@ export interface FloatingTextItem {
   alpha: number;
 }
 
+export interface ParticleItem {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  color: string;
+  alpha: number;
+  maxLife: number;
+  life: number;
+  rotation?: number;
+  vRot?: number;
+  type?: 'dust' | 'debris' | 'mud' | 'sparkle' | 'water_splash';
+}
+
 export function drawActionCanvas(
   ctx: CanvasRenderingContext2D,
   obstacles: RunnerObstacle[],
   collectibles: RunnerCollectible[],
   attacks: WaterAttack[],
   floatingTexts: FloatingTextItem[],
+  particlesOrSystem: ParticleItem[] | Fase2ParticleSystem | null,
   width: number,
   height: number
 ) {
   ctx.clearRect(0, 0, width, height);
+
+  // 0. LIGHTWEIGHT PARTICLES (Dust, debris, water splashes, ground puffs, mud flakes)
+  if (particlesOrSystem instanceof Fase2ParticleSystem) {
+    particlesOrSystem.render(ctx);
+  } else if (Array.isArray(particlesOrSystem)) {
+    const particles = particlesOrSystem;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      if (p.alpha <= 0.01) continue;
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+      ctx.translate(p.x, p.y);
+      if (p.rotation !== undefined) {
+        ctx.rotate(p.rotation);
+      }
+
+      ctx.fillStyle = p.color;
+
+      if (p.type === 'debris') {
+        // Small jagged rock / crumb
+        const r = p.radius;
+        ctx.beginPath();
+        ctx.moveTo(-r, -r * 0.7);
+        ctx.lineTo(r * 0.8, -r);
+        ctx.lineTo(r, r * 0.8);
+        ctx.lineTo(-r * 0.5, r);
+        ctx.closePath();
+        ctx.fill();
+      } else if (p.type === 'sparkle') {
+        // 4-point star for collectibles/turbo
+        const r = p.radius;
+        ctx.beginPath();
+        ctx.moveTo(0, -r);
+        ctx.quadraticCurveTo(0, 0, r, 0);
+        ctx.quadraticCurveTo(0, 0, 0, r);
+        ctx.quadraticCurveTo(0, 0, -r, 0);
+        ctx.quadraticCurveTo(0, 0, 0, -r);
+        ctx.closePath();
+        ctx.fill();
+      } else if (p.type === 'water_splash') {
+        // Water droplet teardrop
+        ctx.beginPath();
+        ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Soft round dust cloudlet
+        ctx.beginPath();
+        ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+  }
 
   // 1. OBSTACLES
   for (let i = 0; i < obstacles.length; i++) {

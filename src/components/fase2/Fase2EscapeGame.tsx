@@ -6,7 +6,8 @@ import { PursuerCharacter } from './PursuerCharacter';
 import { Fase2ParallaxBackground } from './Fase2ParallaxBackground';
 import { Fase2HUD } from './Fase2HUD';
 import { Fase2GameOverModal, Fase2VictoryModal } from './Fase2Modals';
-import { drawActionCanvas, FloatingTextItem } from './Fase2ActionCanvas';
+import { drawActionCanvas, FloatingTextItem, ParticleItem } from './Fase2ActionCanvas';
+import { Fase2ParticleSystem } from './Fase2ParticleSystem';
 
 interface Fase2EscapeGameProps {
   onBackToMenu: () => void;
@@ -124,6 +125,9 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
   const collectiblesRef = useRef<RunnerCollectible[]>([]);
   const attacksRef = useRef<WaterAttack[]>([]);
   const floatingTextsRef = useRef<FloatingTextItem[]>([]);
+  const particleSystemRef = useRef<Fase2ParticleSystem>(new Fase2ParticleSystem(180));
+  const lastFootstepParticleTimeRef = useRef<number>(0);
+  const lastPursuerDustTimeRef = useRef<number>(0);
 
   const lastSpawnXRef = useRef<number>(500);
   const nextItemIdRef = useRef<number>(1);
@@ -134,6 +138,17 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
   const speechTimerRef = useRef<number | null>(null);
   const waterHitTimerRef = useRef<number | null>(null);
   const fartNearbyTimerRef = useRef<number | null>(null);
+
+  // High performance particle emitter delegating to pooled canvas particle engine (Zero GC churn!)
+  const spawnParticles = useCallback((
+    x: number,
+    y: number,
+    count: number,
+    type: ParticleItem['type'] = 'dust',
+    options?: Partial<ParticleItem>
+  ) => {
+    particleSystemRef.current.spawn(x, y, count, type as any, options as any);
+  }, []);
 
   // Floating text helper (drawn on canvas)
   const addFloatingText = useCallback(
@@ -154,9 +169,10 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
     []
   );
 
-  // Trigger Montanha speech bubble
+  // Trigger Montanha speech bubble & comical asynchronous vocalization
   const showSpeech = useCallback((text: string, duration = 2200) => {
     setSpeechText(text);
+    sounds.playMontanhaSpeech(text);
     if (speechTimerRef.current) {
       clearTimeout(speechTimerRef.current);
     }
@@ -185,7 +201,10 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
     jumpBufferedRef.current = false;
     runnerVyRef.current = 14.8;
     setRunnerState('jumping');
-  }, [gameState]);
+    const screenHeight = containerRef.current ? containerRef.current.clientHeight : 450;
+    const groundY = screenHeight - 64;
+    spawnParticles(165, groundY, 6, 'dust');
+  }, [gameState, spawnParticles]);
 
   // Duck Action with fast-fall in mid-air
   const handleDuckStart = useCallback(() => {
@@ -199,8 +218,12 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
       isDuckingRef.current = true;
       sounds.playDuckSlide();
       setRunnerState('ducking');
+      const screenHeight = containerRef.current ? containerRef.current.clientHeight : 450;
+      const groundY = screenHeight - 64;
+      spawnParticles(165, groundY, 8, 'debris', { vy: -15 });
+      spawnParticles(165, groundY, 6, 'dust', { vx: -180 });
     }
-  }, [gameState]);
+  }, [gameState, spawnParticles]);
 
   const handleDuckEnd = useCallback(() => {
     if (gameState !== 'PLAYING') return;
@@ -224,9 +247,14 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
     if (!isJumpingRef.current && !isDuckingRef.current) {
       setRunnerState('turbo');
     }
-    addFloatingText('🚀 SUPER TURBO ATIVADO!', 160, 110, '#84cc16');
+    const screenHeight = containerRef.current ? containerRef.current.clientHeight : 450;
+    const groundY = screenHeight - 64;
+    addFloatingText('🚀 SUPER TURBO ATIVADO!', 160, groundY - 110, '#84cc16');
     showSpeech('SAI DA FRENTE QUE EU TÔ VELOZ! 💨', 2200);
-  }, [gameState, addFloatingText, showSpeech]);
+    spawnParticles(160, groundY, 14, 'dust', { vx: -250 });
+    spawnParticles(160, groundY, 8, 'debris');
+    spawnParticles(160, groundY - 30, 8, 'sparkle');
+  }, [gameState, addFloatingText, showSpeech, spawnParticles]);
 
   // Keyboard controls
   useEffect(() => {
@@ -302,6 +330,7 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
     collectiblesRef.current = [];
     attacksRef.current = [];
     floatingTextsRef.current = [];
+    particleSystemRef.current.reset();
 
     lastSpawnXRef.current = 500;
     nextAttackTimeRef.current = Date.now() + 3000;
@@ -344,7 +373,14 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         return;
       }
 
-      // 3. JUMP PHYSICS (Delta-time normalized, smooth on 60/120/144Hz)
+      // 3. CHARACTER POSITIONS & COORDINATE SYSTEM
+      const montanhaX = 135 + montanhaXOffsetRef.current;
+      const pursuerScreenX = Math.max(-80, 135 - pursuerDistRef.current * 2.4 - 40);
+      const screenWidth = containerRef.current ? containerRef.current.clientWidth : 800;
+      const screenHeight = containerRef.current ? containerRef.current.clientHeight : 450;
+      const groundY = screenHeight - 64;
+
+      // 4. JUMP PHYSICS (Delta-time normalized, smooth on 60/120/144Hz)
       if (isJumpingRef.current) {
         const timeScale = Math.min(2.5, dt * 60);
         runnerYRef.current += runnerVyRef.current * timeScale;
@@ -355,18 +391,34 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           runnerVyRef.current = 0;
           isJumpingRef.current = false;
 
+          // Landing dust & debris shockwave on both sides!
+          particleSystemRef.current.spawnLandingImpact(montanhaX + 30, groundY);
+
           if (jumpBufferedRef.current) {
             jumpBufferedRef.current = false;
             sounds.playJump();
             isJumpingRef.current = true;
             runnerVyRef.current = 14.8;
             setRunnerState('jumping');
+            particleSystemRef.current.spawn(montanhaX + 30, groundY, 4, 'dust');
           } else if (isDuckingRef.current) {
             setRunnerState('ducking');
           } else {
             setRunnerState(isTurboActiveRef.current ? 'turbo' : 'running');
           }
         }
+      }
+
+      // Continuous running footstep dust & sliding debris (generated outside React!)
+      if (!isJumpingRef.current && time - lastFootstepParticleTimeRef.current > (isTurboActiveRef.current ? 40 : isDuckingRef.current ? 50 : 110)) {
+        lastFootstepParticleTimeRef.current = time;
+        particleSystemRef.current.spawnFootstep(montanhaX + 25, groundY, isTurboActiveRef.current, isDuckingRef.current);
+      }
+
+      // Pursuer footstep dust (kicking dust behind chaser)
+      if (time - lastPursuerDustTimeRef.current > 140) {
+        lastPursuerDustTimeRef.current = time;
+        particleSystemRef.current.spawnPursuerFootstep(pursuerScreenX + 50, groundY);
       }
 
       // 4. CHARGE TURBO
@@ -378,9 +430,7 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
       pursuerDistRef.current = Math.max(12, Math.min(95, pursuerDistRef.current + distChange));
 
       // 6. DIRECT GPU TRANSFORM UPDATES FOR CHARACTERS (Zero React Re-renders!)
-      const montanhaX = 135 + montanhaXOffsetRef.current;
       const montanhaY = runnerYRef.current;
-      const pursuerScreenX = Math.max(-80, 135 - pursuerDistRef.current * 2.4 - 40);
 
       if (montanhaWrapperRef.current) {
         montanhaWrapperRef.current.style.transform = `translate3d(${montanhaX}px, ${-montanhaY}px, 0)`;
@@ -408,12 +458,13 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         const randomQuote = FUNNY_SPEECHES[Math.floor(Math.random() * FUNNY_SPEECHES.length)];
         showSpeech(randomQuote, 2200);
 
+        // Spawn comic green flatulence puff particles
+        particleSystemRef.current.spawn(montanhaX - 15, groundY - montanhaY - 25, 8, 'fart_cloud');
+
         nextFartTimeRef.current = Date.now() + 7000 + Math.random() * 5000;
       }
 
       // 8. WATER ATTACKS: SPAWNING & SCHEDULING
-      const screenWidth = containerRef.current ? containerRef.current.clientWidth : 800;
-
       if (Date.now() > nextAttackTimeRef.current && !isTurboActiveRef.current) {
         setIsAiming(true);
 
@@ -446,7 +497,7 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           setIsAiming(false);
           sounds.playSurpriseHose();
 
-          let yPos = 210;
+          let yPos = groundY - 26;
           let width = 75;
           let height = 24;
           let speed = 360;
@@ -455,24 +506,24 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           let isLob = false;
 
           if (weapon === 'hose_high') {
-            yPos = 145;
+            yPos = groundY - 80;
             isHigh = true;
             cleanPower = 8;
           } else if (weapon === 'water_gun') {
-            yPos = 175;
+            yPos = groundY - 50;
             width = 36;
             height = 24;
             speed = 440;
             cleanPower = 6;
           } else if (weapon === 'bucket_lob') {
-            yPos = 110;
+            yPos = groundY - 95;
             width = 44;
             height = 40;
             speed = 320;
             cleanPower = 12;
             isLob = true;
           } else if (weapon === 'super_jet') {
-            yPos = 160;
+            yPos = groundY - 42;
             width = 110;
             height = 32;
             speed = 460;
@@ -506,6 +557,14 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
 
         att.x += (att.speed + (isTurboActiveRef.current ? -currentSpeed : 0)) * dt;
 
+        // Trailing water mist & spray particles along the projectile
+        particleSystemRef.current.spawnWaterAttackTrail(
+          att.x,
+          att.y + att.height / 2,
+          att.width,
+          att.type === 'super_jet'
+        );
+
         const crossesMontanha =
           att.x + att.width > montanhaX + 10 && att.x < montanhaX + montanhaWidth - 10;
 
@@ -514,7 +573,9 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
 
           if (isTurboActiveRef.current) {
             att.active = false;
-            addFloatingText('💥 ÁGUA VAPORIZADA!', montanhaX, 130, '#84cc16');
+            addFloatingText('💥 ÁGUA VAPORIZADA!', montanhaX, groundY - montanhaY - 60, '#84cc16');
+            particleSystemRef.current.spawn(montanhaX + 25, groundY - montanhaY - 40, 10, 'water_mist');
+            particleSystemRef.current.spawn(montanhaX + 25, groundY - montanhaY - 40, 6, 'sparkle');
             continue;
           }
 
@@ -534,7 +595,8 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
             waterHitTimerRef.current = window.setTimeout(() => setIsWaterHit(false), 450);
 
             cleanLevelRef.current = Math.min(100, cleanLevelRef.current + att.cleanPower);
-            addFloatingText(`+${att.cleanPower}% LIMPEZA! 🧼`, montanhaX + 20, 140, '#f43f5e');
+            addFloatingText(`+${att.cleanPower}% LIMPEZA! 🧼`, montanhaX + 20, groundY - montanhaY - 70, '#f43f5e');
+            particleSystemRef.current.spawnWaterHit(montanhaX + 35, groundY - montanhaY - 45);
 
             if (cleanLevelRef.current >= 100) {
               setCleanLevel(100);
@@ -550,7 +612,8 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
             sounds.playWhooshDodge();
             scoreRef.current += 25;
             dodgesCountRef.current += 1;
-            addFloatingText('DESVIO! 💨 +25', montanhaX + 20, 120, '#38bdf8');
+            addFloatingText('DESVIO! 💨 +25', montanhaX + 20, groundY - montanhaY - 70, '#38bdf8');
+            particleSystemRef.current.spawn(montanhaX + 30, groundY - montanhaY - 30, 5, 'dust');
 
             if (Math.random() < 0.45) {
               const dQuote = DODGE_SPEECHES[Math.floor(Math.random() * DODGE_SPEECHES.length)];
@@ -576,7 +639,6 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
 
         let width = 45;
         let height = 45;
-        let y = isOverhead ? 60 : 210;
 
         if (isOverhead) {
           width = 50;
@@ -588,6 +650,8 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           width = 62;
           height = 28;
         }
+
+        let y = isOverhead ? groundY - 145 : groundY - height;
 
         obstaclesRef.current.push({
           id: nextItemIdRef.current++,
@@ -605,7 +669,7 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
             id: nextItemIdRef.current++,
             kind: colKind,
             x: spawnX + 90,
-            y: isOverhead ? 220 : 130,
+            y: isOverhead ? groundY - 45 : groundY - 110,
             width: 32,
             height: 32,
           });
@@ -637,7 +701,8 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
                 sounds.playMudSquish();
                 cleanLevelRef.current = Math.max(0, cleanLevelRef.current - 8);
                 scoreRef.current += 35;
-                addFloatingText('LAMA! 💩 -8% LIMPEZA', montanhaX, 120, '#78350f');
+                addFloatingText('LAMA! 💩 -8% LIMPEZA', montanhaX, groundY - 70, '#78350f');
+                particleSystemRef.current.spawnMudSplash(montanhaX + 25, groundY);
                 const mudQuote = MUD_SPEECHES[Math.floor(Math.random() * MUD_SPEECHES.length)];
                 showSpeech(mudQuote, 2000);
               } else {
@@ -645,10 +710,13 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
                 setRunnerState('tripping');
                 setIsInvulnerable(true);
                 isInvulnerableRef.current = true;
+                particleSystemRef.current.spawn(montanhaX + 30, groundY - 15, 8, 'debris');
+                particleSystemRef.current.spawn(montanhaX + 30, groundY - 20, 6, 'dust');
 
                 if (obs.kind === 'puddle' || obs.kind === 'bucket') {
                   cleanLevelRef.current = Math.min(100, cleanLevelRef.current + 5);
-                  addFloatingText('+5% LIMPEZA! 🧼', montanhaX, 120, '#f43f5e');
+                  addFloatingText('+5% LIMPEZA! 🧼', montanhaX, groundY - 70, '#f43f5e');
+                  particleSystemRef.current.spawnWaterPuddleSplash(montanhaX + 30, groundY);
                 }
 
                 pursuerDistRef.current = Math.max(12, pursuerDistRef.current - 18);
@@ -690,14 +758,17 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
             if (col.kind === 'rubber_duck') {
               coinsRef.current += 1;
               scoreRef.current += 50;
-              addFloatingText('+1 PATO 🦆', montanhaX + 20, 100, '#f59e0b');
+              addFloatingText('+1 PATO 🦆', montanhaX + 20, groundY - montanhaY - 60, '#f59e0b');
+              particleSystemRef.current.spawn(montanhaX + 25, col.y + 16, 8, 'sparkle');
             } else if (col.kind === 'gold_soap') {
               scoreRef.current += 30;
-              addFloatingText('+30 PTS ⭐', montanhaX + 20, 100, '#eab308');
+              addFloatingText('+30 PTS ⭐', montanhaX + 20, groundY - montanhaY - 60, '#eab308');
+              particleSystemRef.current.spawn(montanhaX + 25, col.y + 16, 8, 'sparkle');
             } else if (col.kind === 'deodorant_can') {
               turboMeterRef.current = Math.min(100, turboMeterRef.current + 25);
               scoreRef.current += 40;
-              addFloatingText('+25% TURBO 💨', montanhaX + 20, 100, '#84cc16');
+              addFloatingText('+25% TURBO 💨', montanhaX + 20, groundY - montanhaY - 60, '#84cc16');
+              particleSystemRef.current.spawn(montanhaX + 25, col.y + 16, 10, 'sparkle');
             }
           }
         }
@@ -717,7 +788,10 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         }
       }
 
-      // 14. 60FPS HARDWARE ACTION CANVAS DRAW (0.1ms per frame, ZERO React overhead!)
+      // 14. UPDATE CANVAS PARTICLE SYSTEM (Delta-time physics, zero React overhead)
+      particleSystemRef.current.update(dt, groundY);
+
+      // 15. 60FPS HARDWARE ACTION CANVAS DRAW (0.1ms per frame, ZERO React overhead!)
       const canvas = canvasRef.current;
       if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -728,13 +802,14 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
             collectiblesRef.current,
             attacksRef.current,
             floatingTextsRef.current,
+            particleSystemRef.current,
             canvas.width,
             canvas.height
           );
         }
       }
 
-      // 15. THROTTLED REACT STATE UPDATE FOR HUD (~15fps, keeps main thread silky smooth)
+      // 16. THROTTLED REACT STATE UPDATE FOR HUD (~15fps, keeps main thread silky smooth)
       if (time - lastHudUpdateRef.current > 66) {
         lastHudUpdateRef.current = time;
         setDistanceMeters(Math.round(distanceRef.current));
