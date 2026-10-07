@@ -1,28 +1,19 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { WaterAttackType } from '../../types';
 
 interface PursuerCharacterProps {
-  distance: number; // 0 to 100 meters
-  runCycle: number;
   currentWeapon: WaterAttackType;
   isAiming: boolean;
   isFartNearby?: boolean;
 }
 
-export const PursuerCharacter: React.FC<PursuerCharacterProps> = ({
-  distance,
-  runCycle,
+export const PursuerCharacter: React.FC<PursuerCharacterProps> = memo(({
   currentWeapon,
   isAiming,
   isFartNearby = false,
 }) => {
-  const swing = Math.sin(runCycle * Math.PI * 2);
-  const leftLegAngle = swing * 35;
-  const rightLegAngle = -swing * 35;
-  const armSwing = isAiming ? 45 : -swing * 30;
-
   return (
-    <div className="relative w-32 h-36 select-none pointer-events-none transition-all duration-200">
+    <div className="relative w-32 h-36 select-none pointer-events-none">
       {/* Speech shout bubble from pursuer */}
       {isAiming && (
         <div className="absolute -top-12 left-4 bg-sky-500 text-white font-black text-xs px-2.5 py-1 rounded-xl border-2 border-sky-300 shadow-lg whitespace-nowrap animate-bounce z-30">
@@ -52,14 +43,14 @@ export const PursuerCharacter: React.FC<PursuerCharacterProps> = ({
         {/* Shadow */}
         <ellipse cx="64" cy="154" rx="30" ry="6" fill="#000000" opacity="0.22" />
 
-        {/* Back Leg */}
-        <g transform={`rotate(${leftLegAngle} 58 118)`}>
+        {/* Back Leg with GPU CSS animation */}
+        <g className="anim-pursuer-leg-l">
           <path d="M 58 118 L 44 148" stroke="#475569" strokeWidth="11" strokeLinecap="round" />
           <ellipse cx="42" cy="150" rx="8" ry="5" fill="#f43f5e" />
         </g>
 
-        {/* Front Leg */}
-        <g transform={`rotate(${rightLegAngle} 70 118)`}>
+        {/* Front Leg with GPU CSS animation */}
+        <g className="anim-pursuer-leg-r">
           <path d="M 70 118 L 86 148" stroke="#475569" strokeWidth="11" strokeLinecap="round" />
           <ellipse cx="88" cy="150" rx="8" ry="5" fill="#f43f5e" />
         </g>
@@ -72,10 +63,9 @@ export const PursuerCharacter: React.FC<PursuerCharacterProps> = ({
           strokeWidth="3"
         />
 
-        {/* Back Arm */}
-        <g transform={`rotate(${-armSwing} 48 82)`}>
+        {/* Back Arm holding sponge */}
+        <g transform="rotate(-15 48 82)">
           <path d="M 48 82 L 28 66" stroke="url(#pursuerSkin)" strokeWidth="9" strokeLinecap="round" />
-          {/* Sponge or soap in hand */}
           <rect x="14" y="52" width="20" height="16" rx="5" fill="#facc15" stroke="#ca8a04" strokeWidth="2" />
         </g>
 
@@ -95,7 +85,6 @@ export const PursuerCharacter: React.FC<PursuerCharacterProps> = ({
 
         {/* Eyes */}
         {isFartNearby ? (
-          /* Squinting coughing eyes */
           <g>
             <path d="M 64 46 L 72 46" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
             <path d="M 78 46 L 86 46" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
@@ -112,33 +101,29 @@ export const PursuerCharacter: React.FC<PursuerCharacterProps> = ({
         <ellipse cx="78" cy="56" rx="5" ry="4" fill="#b91c1c" />
 
         {/* Front Arm & WEAPONS */}
-        <g transform={`rotate(${armSwing} 74 82)`}>
+        <g transform={isAiming ? 'rotate(35 74 82)' : 'rotate(10 74 82)'}>
           <path d="M 74 82 L 102 76" stroke="url(#pursuerSkin)" strokeWidth="10" strokeLinecap="round" />
 
           {/* Weapon Specific Graphic */}
           {currentWeapon === 'water_gun' ? (
-            /* Water Pistol */
             <g transform="translate(100, 62)">
               <rect x="0" y="8" width="28" height="12" rx="3" fill="#a855f7" stroke="#7e22ce" strokeWidth="2" />
               <rect x="2" y="18" width="8" height="12" rx="2" fill="#9333ea" />
               <ellipse cx="14" cy="5" rx="10" ry="5" fill="#38bdf8" />
             </g>
           ) : currentWeapon === 'bucket_lob' ? (
-            /* Water Bucket */
             <g transform="translate(98, 56)">
               <polygon points="4,10 26,10 22,32 8,32" fill="#0284c7" stroke="#0369a1" strokeWidth="2" />
               <ellipse cx="15" cy="10" rx="11" ry="4" fill="#38bdf8" />
               <path d="M 2 12 Q 15 2 28 12" fill="none" stroke="#64748b" strokeWidth="2" />
             </g>
           ) : currentWeapon === 'super_jet' ? (
-            /* Giant Super Jet Firehose Nozzle */
             <g transform="translate(96, 62)">
               <polygon points="0,6 36,2 36,22 0,18" fill="#eab308" stroke="#ca8a04" strokeWidth="2.5" />
               <ellipse cx="36" cy="12" rx="4" ry="10" fill="#fde047" stroke="#ca8a04" strokeWidth="2" />
               <rect x="-8" y="8" width="12" height="8" rx="2" fill="#ef4444" />
             </g>
           ) : (
-            /* Standard Garden Shower Hose */
             <g transform="translate(98, 64)">
               <ellipse cx="10" cy="10" rx="8" ry="12" fill="#94a3b8" stroke="#475569" strokeWidth="2" />
               <path d="M -6 10 Q 0 10 10 10" stroke="#0284c7" strokeWidth="6" strokeLinecap="round" fill="none" />
@@ -148,4 +133,6 @@ export const PursuerCharacter: React.FC<PursuerCharacterProps> = ({
       </svg>
     </div>
   );
-};
+});
+
+PursuerCharacter.displayName = 'PursuerCharacter';

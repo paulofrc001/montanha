@@ -101,6 +101,101 @@
   100% { transform: translate(0, 0); }
 }
 
+/* GPU Runner Leg & Arm Swing Animations (Zero JS / Zero React overhead) */
+@keyframes montanhaLegSwingL {
+  0%, 100% { transform: rotate(-26deg); }
+  50% { transform: rotate(26deg); }
+}
+@keyframes montanhaLegSwingR {
+  0%, 100% { transform: rotate(26deg); }
+  50% { transform: rotate(-26deg); }
+}
+@keyframes montanhaArmSwing {
+  0%, 100% { transform: rotate(22deg); }
+  50% { transform: rotate(-22deg); }
+}
+@keyframes montanhaBellyBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
+.anim-run-leg-l {
+  transform-origin: 62px 118px;
+  animation: montanhaLegSwingL 0.32s infinite ease-in-out;
+}
+.anim-run-leg-r {
+  transform-origin: 78px 118px;
+  animation: montanhaLegSwingR 0.32s infinite ease-in-out;
+}
+.anim-run-arm {
+  transform-origin: 70px 80px;
+  animation: montanhaArmSwing 0.32s infinite ease-in-out;
+}
+.anim-run-belly {
+  animation: montanhaBellyBounce 0.16s infinite ease-in-out;
+}
+
+/* Turbo Speed Runs (Twice as fast) */
+.anim-turbo-leg-l {
+  transform-origin: 62px 118px;
+  animation: montanhaLegSwingL 0.18s infinite ease-in-out;
+}
+.anim-turbo-leg-r {
+  transform-origin: 78px 118px;
+  animation: montanhaLegSwingR 0.18s infinite ease-in-out;
+}
+.anim-turbo-arm {
+  transform-origin: 70px 80px;
+  animation: montanhaArmSwing 0.18s infinite ease-in-out;
+}
+.anim-turbo-belly {
+  animation: montanhaBellyBounce 0.09s infinite ease-in-out;
+}
+
+/* Pursuer Running Legs */
+@keyframes pursuerLegSwingL {
+  0%, 100% { transform: rotate(-30deg); }
+  50% { transform: rotate(30deg); }
+}
+@keyframes pursuerLegSwingR {
+  0%, 100% { transform: rotate(30deg); }
+  50% { transform: rotate(-30deg); }
+}
+.anim-pursuer-leg-l {
+  transform-origin: 58px 118px;
+  animation: pursuerLegSwingL 0.34s infinite ease-in-out;
+}
+.anim-pursuer-leg-r {
+  transform-origin: 76px 118px;
+  animation: pursuerLegSwingR 0.34s infinite ease-in-out;
+}
+
+/* Continuous Parallax Scrolling on GPU thread */
+@keyframes scrollBgFar {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-400px, 0, 0); }
+}
+@keyframes scrollBgMid {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-400px, 0, 0); }
+}
+.anim-scroll-far {
+  animation: scrollBgFar 6s linear infinite;
+  will-change: transform;
+}
+.anim-scroll-mid {
+  animation: scrollBgMid 3s linear infinite;
+  will-change: transform;
+}
+.anim-scroll-far-turbo {
+  animation: scrollBgFar 2.8s linear infinite;
+  will-change: transform;
+}
+.anim-scroll-mid-turbo {
+  animation: scrollBgMid 1.4s linear infinite;
+  will-change: transform;
+}
+
 .animate-screen-shake {
   animation: screenShake 0.4s ease-in-out;
 }

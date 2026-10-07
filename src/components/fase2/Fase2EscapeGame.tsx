@@ -3,11 +3,10 @@ import { RunnerState, RunnerObstacle, RunnerCollectible, WaterAttack, WaterAttac
 import { sounds } from '../../audio';
 import { MontanhaRunner } from './MontanhaRunner';
 import { PursuerCharacter } from './PursuerCharacter';
-import { ObstaclesLayer } from './ObstaclesLayer';
-import { WaterAttacksLayer } from './WaterAttacksLayer';
 import { Fase2ParallaxBackground } from './Fase2ParallaxBackground';
 import { Fase2HUD } from './Fase2HUD';
 import { Fase2GameOverModal, Fase2VictoryModal } from './Fase2Modals';
+import { drawActionCanvas, FloatingTextItem } from './Fase2ActionCanvas';
 
 interface Fase2EscapeGameProps {
   onBackToMenu: () => void;
@@ -74,80 +73,89 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
   isMuted,
   onToggleMute,
 }) => {
-  // Core Gameplay States
-  const [cleanLevel, setCleanLevel] = useState<number>(0); // 0% = 100% dirty, 100% = Game Over!
+  // Throttled HUD States (updated ~15fps so React doesn't freeze the main thread)
+  const [cleanLevel, setCleanLevel] = useState<number>(0);
   const [distanceMeters, setDistanceMeters] = useState<number>(0);
   const [score, setScore] = useState<number>(0);
   const [coins, setCoins] = useState<number>(0);
-  const [pursuerDistance, setPursuerDistance] = useState<number>(45); // meters behind (0 to 100)
-  const [turboMeter, setTurboMeter] = useState<number>(30); // 0 to 100%
+  const [pursuerDistance, setPursuerDistance] = useState<number>(45);
+  const [turboMeter, setTurboMeter] = useState<number>(35);
+  const [gameState, setGameState] = useState<'PLAYING' | 'VICTORY' | 'GAME_OVER'>('PLAYING');
+  const [dodgesCount, setDodgesCount] = useState<number>(0);
+
+  // Character Visual States
   const [runnerState, setRunnerState] = useState<RunnerState>('running');
   const [showFartPuff, setShowFartPuff] = useState<boolean>(false);
   const [isWaterHit, setIsWaterHit] = useState<boolean>(false);
   const [isInvulnerable, setIsInvulnerable] = useState<boolean>(false);
   const [speechText, setSpeechText] = useState<string>('Banho hoje não! Fui!');
-  const [gameState, setGameState] = useState<'PLAYING' | 'VICTORY' | 'GAME_OVER'>('PLAYING');
-  const [dodgesCount, setDodgesCount] = useState<number>(0);
 
-  // Pursuer Weapon State
+  // Pursuer Visual States
   const [currentWeapon, setCurrentWeapon] = useState<WaterAttackType>('hose_low');
   const [isAiming, setIsAiming] = useState<boolean>(false);
   const [isFartNearby, setIsFartNearby] = useState<boolean>(false);
 
-  // Dynamic Attacks & Floating Texts
-  const [attacks, setAttacks] = useState<WaterAttack[]>([]);
-  const [floatingTexts, setFloatingTexts] = useState<
-    { id: number; text: string; x: number; y: number; color: string }[]
-  >([]);
-
-  // Animation & Physics Refs
+  // High Performance Refs
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const lastTimeRef = useRef<number>(0);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const montanhaWrapperRef = useRef<HTMLDivElement | null>(null);
+  const pursuerWrapperRef = useRef<HTMLDivElement | null>(null);
 
-  // Horizontal dynamic offset (desktop left/right)
-  const montanhaXOffsetRef = useRef<number>(0); // -35 to +35 px
-  const [montanhaXOffset, setMontanhaXOffset] = useState<number>(0);
+  // Physics and Game State in Refs (No React render cost per frame!)
+  const distanceRef = useRef<number>(0);
+  const turboMeterRef = useRef<number>(35);
+  const pursuerDistRef = useRef<number>(45);
+  const cleanLevelRef = useRef<number>(0);
+  const scoreRef = useRef<number>(0);
+  const coinsRef = useRef<number>(0);
+  const dodgesCountRef = useRef<number>(0);
 
-  // Runner vertical position & jump physics
-  const runnerYRef = useRef<number>(0); // 0 = on ground, > 0 = airborne
+  const runnerYRef = useRef<number>(0);
   const runnerVyRef = useRef<number>(0);
+  const montanhaXOffsetRef = useRef<number>(0);
   const isDuckingRef = useRef<boolean>(false);
   const isJumpingRef = useRef<boolean>(false);
   const isInvulnerableRef = useRef<boolean>(false);
   const isTurboActiveRef = useRef<boolean>(false);
   const turboEndTimeRef = useRef<number>(0);
+  const jumpBufferedRef = useRef<boolean>(false);
 
-  const runCycleRef = useRef<number>(0);
-  const scrollOffsetRef = useRef<number>(0);
-
-  // Obstacles and collectibles
   const obstaclesRef = useRef<RunnerObstacle[]>([]);
   const collectiblesRef = useRef<RunnerCollectible[]>([]);
   const attacksRef = useRef<WaterAttack[]>([]);
+  const floatingTextsRef = useRef<FloatingTextItem[]>([]);
+
   const lastSpawnXRef = useRef<number>(500);
   const nextItemIdRef = useRef<number>(1);
-
-  // Flatulence & Attack timers
-  const nextFartTimeRef = useRef<number>(Date.now() + 5000);
+  const nextFartTimeRef = useRef<number>(Date.now() + 6000);
   const nextAttackTimeRef = useRef<number>(Date.now() + 3000);
+  const lastHudUpdateRef = useRef<number>(0);
+
   const speechTimerRef = useRef<number | null>(null);
   const waterHitTimerRef = useRef<number | null>(null);
   const fartNearbyTimerRef = useRef<number | null>(null);
 
-  // Floating text helper
+  // Floating text helper (drawn on canvas)
   const addFloatingText = useCallback(
     (text: string, x: number, y: number, color = '#38bdf8') => {
-      const id = Date.now() + Math.random();
-      setFloatingTexts((prev) => [...prev.slice(-4), { id, text, x, y, color }]);
-      setTimeout(() => {
-        setFloatingTexts((prev) => prev.filter((ft) => ft.id !== id));
-      }, 1000);
+      floatingTextsRef.current.push({
+        id: nextItemIdRef.current++,
+        text,
+        x,
+        y,
+        color,
+        alpha: 1.0,
+      });
+      // Cap at 8 active floating texts
+      if (floatingTextsRef.current.length > 8) {
+        floatingTextsRef.current.shift();
+      }
     },
     []
   );
 
-  // Trigger Montanha comic speech
-  const showSpeech = useCallback((text: string, duration = 2500) => {
+  // Trigger Montanha speech bubble
+  const showSpeech = useCallback((text: string, duration = 2200) => {
     setSpeechText(text);
     if (speechTimerRef.current) {
       clearTimeout(speechTimerRef.current);
@@ -157,16 +165,12 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
     }, duration);
   }, []);
 
-  // Ref for jump buffering (coyote time / jump buffer)
-  const jumpBufferedRef = useRef<boolean>(false);
-
-  // Jump Action with dynamic buffering
+  // Jump Action with dynamic buffering & snappy impulse
   const handleJump = useCallback(() => {
     if (gameState !== 'PLAYING') return;
 
     if (isJumpingRef.current) {
-      // Buffer jump if near ground
-      if (runnerYRef.current < 45) {
+      if (runnerYRef.current < 45 && runnerVyRef.current < 2) {
         jumpBufferedRef.current = true;
       }
       return;
@@ -178,55 +182,53 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
 
     sounds.playJump();
     isJumpingRef.current = true;
-    runnerVyRef.current = 14.8; // Snappy jump velocity
+    jumpBufferedRef.current = false;
+    runnerVyRef.current = 14.8;
     setRunnerState('jumping');
   }, [gameState]);
 
-  // Duck Action with Fast-Fall
+  // Duck Action with fast-fall in mid-air
   const handleDuckStart = useCallback(() => {
     if (gameState !== 'PLAYING') return;
 
     if (isJumpingRef.current) {
-      // Fast-fall: immediately dive down to avoid high jets or land quickly
-      runnerVyRef.current = Math.min(runnerVyRef.current, -8.5);
-      return;
-    }
-
-    if (!isDuckingRef.current) {
+      if (runnerVyRef.current > -5) {
+        runnerVyRef.current = -12;
+      }
+    } else {
+      isDuckingRef.current = true;
       sounds.playDuckSlide();
+      setRunnerState('ducking');
     }
-    isDuckingRef.current = true;
-    setRunnerState('ducking');
   }, [gameState]);
 
   const handleDuckEnd = useCallback(() => {
+    if (gameState !== 'PLAYING') return;
     isDuckingRef.current = false;
-    if (!isJumpingRef.current && runnerState === 'ducking') {
+    if (!isJumpingRef.current) {
       setRunnerState(isTurboActiveRef.current ? 'turbo' : 'running');
     }
-  }, [runnerState]);
+  }, [gameState]);
 
-  // Trigger Turbo Boost
+  // Turbo Action
   const handleTriggerTurbo = useCallback(() => {
-    if (gameState !== 'PLAYING' || turboMeter < 100) return;
+    if (gameState !== 'PLAYING') return;
+    if (turboMeterRef.current < 100 || isTurboActiveRef.current) return;
+
+    turboMeterRef.current = 0;
+    setTurboMeter(0);
+    isTurboActiveRef.current = true;
+    turboEndTimeRef.current = Date.now() + 3800; // 3.8s duration
 
     sounds.playTurboBoost();
-    isTurboActiveRef.current = true;
-    turboEndTimeRef.current = Date.now() + 3500;
-    setTurboMeter(0);
-    setRunnerState('turbo');
+    if (!isJumpingRef.current && !isDuckingRef.current) {
+      setRunnerState('turbo');
+    }
+    addFloatingText('🚀 SUPER TURBO ATIVADO!', 160, 110, '#84cc16');
+    showSpeech('SAI DA FRENTE QUE EU TÔ VELOZ! 💨', 2200);
+  }, [gameState, addFloatingText, showSpeech]);
 
-    // Vaporize on-screen water projectiles
-    attacksRef.current = [];
-    setAttacks([]);
-
-    // Give Montanha major distance boost from pursuer!
-    setPursuerDistance((prev) => Math.min(100, prev + 40));
-    addFloatingText('🚀 GÁS TURBO ATIVADO!', 135, 120, '#84cc16');
-    showSpeech('SEGURA O GÁS TURBO! 💨🚀', 3000);
-  }, [gameState, turboMeter, showSpeech, addFloatingText]);
-
-  // Keyboard controls listener (Desktop support)
+  // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
@@ -236,17 +238,13 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
       } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
         e.preventDefault();
         handleDuckStart();
-      } else if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
-        e.preventDefault();
-        montanhaXOffsetRef.current = -30; // Slightly back
-        setMontanhaXOffset(-30);
-      } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
-        e.preventDefault();
-        montanhaXOffsetRef.current = 35; // Slightly forward
-        setMontanhaXOffset(35);
-      } else if (e.code === 'KeyT' || e.code === 'KeyX' || e.code === 'ShiftLeft') {
+      } else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyT') {
         e.preventDefault();
         handleTriggerTurbo();
+      } else if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+        montanhaXOffsetRef.current = -30;
+      } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+        montanhaXOffsetRef.current = 30;
       }
     };
 
@@ -255,7 +253,6 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         handleDuckEnd();
       } else if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowRight' || e.code === 'KeyD') {
         montanhaXOffsetRef.current = 0;
-        setMontanhaXOffset(0);
       }
     };
 
@@ -270,6 +267,14 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
   // Restart Phase 2
   const handleRestart = () => {
     sounds.playClick();
+    cleanLevelRef.current = 0;
+    distanceRef.current = 0;
+    scoreRef.current = 0;
+    coinsRef.current = 0;
+    pursuerDistRef.current = 45;
+    turboMeterRef.current = 35;
+    dodgesCountRef.current = 0;
+
     setCleanLevel(0);
     setDistanceMeters(0);
     setScore(0);
@@ -277,34 +282,36 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
     setPursuerDistance(45);
     setTurboMeter(35);
     setDodgesCount(0);
+
     setRunnerState('running');
     setShowFartPuff(false);
     setIsWaterHit(false);
     setIsInvulnerable(false);
     setIsAiming(false);
     setIsFartNearby(false);
+
     isInvulnerableRef.current = false;
     isJumpingRef.current = false;
     isDuckingRef.current = false;
     isTurboActiveRef.current = false;
     runnerYRef.current = 0;
     runnerVyRef.current = 0;
-    scrollOffsetRef.current = 0;
     montanhaXOffsetRef.current = 0;
-    setMontanhaXOffset(0);
+
     obstaclesRef.current = [];
     collectiblesRef.current = [];
     attacksRef.current = [];
-    setAttacks([]);
-    setFloatingTexts([]);
+    floatingTextsRef.current = [];
+
     lastSpawnXRef.current = 500;
     nextAttackTimeRef.current = Date.now() + 3000;
-    nextFartTimeRef.current = Date.now() + 5000;
+    nextFartTimeRef.current = Date.now() + 6000;
     setGameState('PLAYING');
     showSpeech('Banho hoje não! Fui!', 2500);
   };
 
-  // Main 60fps Game Loop
+  // Main 60/120fps High-Performance Game Loop
+  // DEPENDS ONLY ON gameState! Never restarts mid-game!
   useEffect(() => {
     if (gameState !== 'PLAYING') return;
 
@@ -312,10 +319,10 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
     let lastTime = performance.now();
 
     const loop = (time: number) => {
-      const dt = Math.min((time - lastTime) / 1000, 0.1);
+      const dt = Math.min((time - lastTime) / 1000, 0.08);
       lastTime = time;
 
-      // Check Turbo duration
+      // 1. TURBO DURATION
       if (isTurboActiveRef.current && Date.now() > turboEndTimeRef.current) {
         isTurboActiveRef.current = false;
         if (!isJumpingRef.current && !isDuckingRef.current) {
@@ -323,39 +330,31 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         }
       }
 
-      // Base speed calculation (pixels per second)
+      // 2. SPEED & DISTANCE
       const currentSpeed = isTurboActiveRef.current
         ? 520
-        : 260 + (scrollOffsetRef.current / 1800) * 15;
-
+        : 260 + (distanceRef.current / 15);
       const deltaX = currentSpeed * dt;
-      scrollOffsetRef.current += deltaX;
+      distanceRef.current += deltaX / 8; // 1 meter = 8 pixels
 
-      // Distance meters (1 meter = 8 pixels)
-      const newMeters = scrollOffsetRef.current / 8;
-      setDistanceMeters(newMeters);
-
-      // Check Victory Condition: Survived 500 meters without hitting 100% clean!
-      if (newMeters >= 500) {
+      // Check Victory Condition: Survived 500 meters without reaching 100% clean!
+      if (distanceRef.current >= 500) {
+        setDistanceMeters(500);
         setGameState('VICTORY');
         return;
       }
 
-      // Run cycle animation
-      runCycleRef.current = (runCycleRef.current + dt * (currentSpeed / 40)) % 1;
-
-      // JUMP PHYSICS (Delta-time normalized for ultra-smooth 60/120fps across all screens)
+      // 3. JUMP PHYSICS (Delta-time normalized, smooth on 60/120/144Hz)
       if (isJumpingRef.current) {
         const timeScale = Math.min(2.5, dt * 60);
         runnerYRef.current += runnerVyRef.current * timeScale;
-        runnerVyRef.current -= 0.62 * timeScale; // Smooth natural gravity
+        runnerVyRef.current -= 0.62 * timeScale; // Gravity
 
         if (runnerYRef.current <= 0) {
           runnerYRef.current = 0;
           runnerVyRef.current = 0;
           isJumpingRef.current = false;
 
-          // Check if user pressed jump right before touching ground (jump buffer)
           if (jumpBufferedRef.current) {
             jumpBufferedRef.current = false;
             sounds.playJump();
@@ -370,55 +369,59 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         }
       }
 
-      // CHARGE TURBO GAUGE (3.5% per second)
-      setTurboMeter((prev) => Math.min(100, prev + dt * 3.5));
+      // 4. CHARGE TURBO
+      turboMeterRef.current = Math.min(100, turboMeterRef.current + dt * 3.5);
 
-      // PURSUER DISTANCE DYNAMICS
-      setPursuerDistance((prev) => {
-        let change = isTurboActiveRef.current ? dt * 10 : -dt * 0.9;
-        if (newMeters > 200) change -= dt * 0.6;
-        return Math.max(12, Math.min(95, prev + change));
-      });
+      // 5. PURSUER DISTANCE DYNAMICS
+      let distChange = isTurboActiveRef.current ? dt * 10 : -dt * 0.9;
+      if (distanceRef.current > 200) distChange -= dt * 0.6;
+      pursuerDistRef.current = Math.max(12, Math.min(95, pursuerDistRef.current + distChange));
 
-      // RANDOM COMIC FLATULENCE TRIGGER (Purely visual & silent - NO freezing audio!)
+      // 6. DIRECT GPU TRANSFORM UPDATES FOR CHARACTERS (Zero React Re-renders!)
+      const montanhaX = 135 + montanhaXOffsetRef.current;
+      const montanhaY = runnerYRef.current;
+      const pursuerScreenX = Math.max(-80, 135 - pursuerDistRef.current * 2.4 - 40);
+
+      if (montanhaWrapperRef.current) {
+        montanhaWrapperRef.current.style.transform = `translate3d(${montanhaX}px, ${-montanhaY}px, 0)`;
+      }
+
+      if (pursuerWrapperRef.current) {
+        pursuerWrapperRef.current.style.transform = `translate3d(${pursuerScreenX}px, 0, 0)`;
+      }
+
+      // 7. COMIC FLATULENCE TRIGGER (Visual puff and pursuer stun, silent & lightweight)
       if (Date.now() > nextFartTimeRef.current && !isTurboActiveRef.current) {
-        // Comic visual puff without any audio freeze
         setShowFartPuff(true);
         setTimeout(() => setShowFartPuff(false), 1400);
 
-        // If pursuer is within 45m, pursuer gets stunned by stink!
         setIsFartNearby(true);
         if (fartNearbyTimerRef.current) clearTimeout(fartNearbyTimerRef.current);
         fartNearbyTimerRef.current = window.setTimeout(() => setIsFartNearby(false), 2200);
 
         // Push pursuer back
-        setPursuerDistance((prev) => Math.min(100, prev + 15));
+        pursuerDistRef.current = Math.min(100, pursuerDistRef.current + 15);
 
-        // Dissolve any nearby water attacks right behind Montanha
+        // Dissolve any water attacks directly behind Montanha
         attacksRef.current = attacksRef.current.filter((att) => att.x > 180 || att.x < 50);
 
-        // Pick a funny quote
         const randomQuote = FUNNY_SPEECHES[Math.floor(Math.random() * FUNNY_SPEECHES.length)];
         showSpeech(randomQuote, 2200);
 
-        // Next fart in 7 to 12 seconds
         nextFartTimeRef.current = Date.now() + 7000 + Math.random() * 5000;
       }
 
-      // WATER ATTACKS: SPAWNING & SCHEDULING
+      // 8. WATER ATTACKS: SPAWNING & SCHEDULING
       const screenWidth = containerRef.current ? containerRef.current.clientWidth : 800;
-      const pursuerScreenX = Math.max(-60, 135 - pursuerDistance * 2.4 - 40);
 
       if (Date.now() > nextAttackTimeRef.current && !isTurboActiveRef.current) {
-        // Prepare attack
         setIsAiming(true);
 
-        // Pick weapon type: alternates between low hose, high hose, water gun, bucket, and super jet
         const r = Math.random();
         let weapon: WaterAttackType = 'hose_low';
-        if (newMeters > 180 && r < 0.25) {
+        if (distanceRef.current > 180 && r < 0.25) {
           weapon = 'super_jet';
-        } else if (newMeters > 90 && r < 0.5) {
+        } else if (distanceRef.current > 90 && r < 0.5) {
           weapon = 'bucket_lob';
         } else if (r < 0.7) {
           weapon = 'hose_high';
@@ -429,7 +432,6 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         }
         setCurrentWeapon(weapon);
 
-        // Warning sound/speech
         if (weapon === 'hose_low') {
           showSpeech('Jato no chão! PULA!', 1500);
         } else if (weapon === 'hose_high') {
@@ -440,14 +442,11 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           showSpeech('SUPER JATO! CUIDADO! 🚨', 1500);
         }
 
-        // Fire projectile after brief aiming windup (400ms)
         setTimeout(() => {
           setIsAiming(false);
-          if (gameState !== 'PLAYING') return;
-
           sounds.playSurpriseHose();
 
-          let yPos = 210; // Ground
+          let yPos = 210;
           let width = 75;
           let height = 24;
           let speed = 360;
@@ -456,7 +455,7 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           let isLob = false;
 
           if (weapon === 'hose_high') {
-            yPos = 145; // Head/chest level
+            yPos = 145;
             isHigh = true;
             cleanPower = 8;
           } else if (weapon === 'water_gun') {
@@ -483,7 +482,7 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           attacksRef.current.push({
             id: nextItemIdRef.current++,
             type: weapon,
-            x: pursuerScreenX + 110, // from pursuer's hose/hand
+            x: pursuerScreenX + 110,
             y: yPos,
             width,
             height,
@@ -495,53 +494,36 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           });
         }, 400);
 
-        // Schedule next attack (3.5 to 5.5s)
-        const delay = Math.max(3000, 5200 - (newMeters / 500) * 1600);
+        const delay = Math.max(3000, 5200 - (distanceRef.current / 500) * 1600);
         nextAttackTimeRef.current = Date.now() + delay;
       }
 
-      // Montanha screen positions
-      const montanhaX = 135 + montanhaXOffsetRef.current;
-      const montanhaY = runnerYRef.current;
+      // 9. UPDATE WATER ATTACKS & COLLISIONS
       const montanhaWidth = 65;
-      const montanhaHeight = isDuckingRef.current ? 42 : 85;
-
-      // UPDATE WATER ATTACKS & DETECT HIT OR DODGE
       for (let i = attacksRef.current.length - 1; i >= 0; i--) {
         const att = attacksRef.current[i];
         if (!att.active) continue;
 
-        // Move water projectile across screen towards right
         att.x += (att.speed + (isTurboActiveRef.current ? -currentSpeed : 0)) * dt;
 
-        // Check interaction when projectile crosses Montanha's X zone
-        const crossesMontanha = att.x + att.width > montanhaX + 10 && att.x < montanhaX + montanhaWidth - 10;
+        const crossesMontanha =
+          att.x + att.width > montanhaX + 10 && att.x < montanhaX + montanhaWidth - 10;
 
         if (crossesMontanha && !isInvulnerableRef.current) {
           let isHit = false;
 
           if (isTurboActiveRef.current) {
-            // Turbo destroys water!
             att.active = false;
             addFloatingText('💥 ÁGUA VAPORIZADA!', montanhaX, 130, '#84cc16');
             continue;
           }
 
           if (att.isHigh) {
-            // High water jet: hits IF NOT DUCKING!
-            if (!isDuckingRef.current) {
-              isHit = true;
-            }
+            if (!isDuckingRef.current) isHit = true;
           } else if (att.isLob) {
-            // Parabolic bucket: hits if on ground
-            if (montanhaY < 30 && !isDuckingRef.current) {
-              isHit = true;
-            }
+            if (montanhaY < 30 && !isDuckingRef.current) isHit = true;
           } else {
-            // Ground/low water jet: hits IF NOT JUMPING!
-            if (montanhaY < 28) {
-              isHit = true;
-            }
+            if (montanhaY < 28) isHit = true;
           }
 
           if (isHit) {
@@ -551,30 +533,25 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
             if (waterHitTimerRef.current) clearTimeout(waterHitTimerRef.current);
             waterHitTimerRef.current = window.setTimeout(() => setIsWaterHit(false), 450);
 
-            // Increase Cleanliness Percentage!
-            setCleanLevel((prev) => {
-              const updated = Math.min(100, prev + att.cleanPower);
-              if (updated >= 100) {
-                // GAME OVER! Montanha is 100% clean!
-                setGameState('GAME_OVER');
-              }
-              return updated;
-            });
-
+            cleanLevelRef.current = Math.min(100, cleanLevelRef.current + att.cleanPower);
             addFloatingText(`+${att.cleanPower}% LIMPEZA! 🧼`, montanhaX + 20, 140, '#f43f5e');
 
-            // Comic shout
+            if (cleanLevelRef.current >= 100) {
+              setCleanLevel(100);
+              setGameState('GAME_OVER');
+              return;
+            }
+
             const hitQuote = WATER_HIT_SPEECHES[Math.floor(Math.random() * WATER_HIT_SPEECHES.length)];
             showSpeech(hitQuote, 2000);
           } else {
             // SUCCESSFUL DODGE!
             att.active = false;
             sounds.playWhooshDodge();
-            setScore((s) => s + 25);
-            setDodgesCount((d) => d + 1);
+            scoreRef.current += 25;
+            dodgesCountRef.current += 1;
             addFloatingText('DESVIO! 💨 +25', montanhaX + 20, 120, '#38bdf8');
 
-            // Dodge speech occasionally
             if (Math.random() < 0.45) {
               const dQuote = DODGE_SPEECHES[Math.floor(Math.random() * DODGE_SPEECHES.length)];
               showSpeech(dQuote, 1800);
@@ -582,14 +559,12 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           }
         }
 
-        // Remove offscreen right
         if (att.x > screenWidth + 100) {
           attacksRef.current.splice(i, 1);
         }
       }
-      setAttacks([...attacksRef.current]);
 
-      // SPAWN OBSTACLES & COLLECTIBLES
+      // 10. SPAWN OBSTACLES & COLLECTIBLES
       if (lastSpawnXRef.current - deltaX < screenWidth + 200) {
         const spawnDistance = 240 + Math.random() * 180;
         const spawnX = screenWidth + spawnDistance;
@@ -624,7 +599,6 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
           isOverhead,
         });
 
-        // Collectibles
         if (Math.random() < 0.65) {
           const colKind = Math.random() < 0.5 ? 'rubber_duck' : Math.random() < 0.8 ? 'gold_soap' : 'deodorant_can';
           collectiblesRef.current.push({
@@ -640,7 +614,7 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         lastSpawnXRef.current = spawnX;
       }
 
-      // MOVE OBSTACLES & DETECT COLLISIONS
+      // 11. MOVE OBSTACLES & DETECT COLLISION
       for (let i = obstaclesRef.current.length - 1; i >= 0; i--) {
         const obs = obstaclesRef.current[i];
         obs.x -= deltaX;
@@ -659,36 +633,31 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
             if (hit) {
               obs.passed = true;
 
-              // SPECIAL: MUD PUDDLE GIVES DIRT BACK! (-8% Cleanliness)
               if (obs.kind === 'mud_puddle') {
                 sounds.playMudSquish();
-                setCleanLevel((prev) => Math.max(0, prev - 8));
+                cleanLevelRef.current = Math.max(0, cleanLevelRef.current - 8);
+                scoreRef.current += 35;
                 addFloatingText('LAMA! 💩 -8% LIMPEZA', montanhaX, 120, '#78350f');
-                setScore((s) => s + 35);
                 const mudQuote = MUD_SPEECHES[Math.floor(Math.random() * MUD_SPEECHES.length)];
                 showSpeech(mudQuote, 2000);
               } else {
-                // Regular obstacle trip
                 sounds.playTrip();
                 setRunnerState('tripping');
                 setIsInvulnerable(true);
                 isInvulnerableRef.current = true;
 
-                // Penalty: Pursuer gains 18m and cleanliness might rise if soapy puddle
                 if (obs.kind === 'puddle' || obs.kind === 'bucket') {
-                  setCleanLevel((c) => Math.min(100, c + 5));
+                  cleanLevelRef.current = Math.min(100, cleanLevelRef.current + 5);
                   addFloatingText('+5% LIMPEZA! 🧼', montanhaX, 120, '#f43f5e');
                 }
 
-                setPursuerDistance((p) => Math.max(12, p - 18));
+                pursuerDistRef.current = Math.max(12, pursuerDistRef.current - 18);
                 showSpeech('Opa! Tropecei!', 1800);
 
                 setTimeout(() => {
                   setIsInvulnerable(false);
                   isInvulnerableRef.current = false;
-                  if (gameState === 'PLAYING') {
-                    setRunnerState(isTurboActiveRef.current ? 'turbo' : 'running');
-                  }
+                  setRunnerState(isTurboActiveRef.current ? 'turbo' : 'running');
                 }, 1000);
               }
             }
@@ -697,7 +666,7 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
 
         if (!obs.passed && obs.x + obs.width < montanhaX) {
           obs.passed = true;
-          setScore((s) => s + 15);
+          scoreRef.current += 15;
         }
 
         if (obs.x < -100) {
@@ -705,7 +674,7 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         }
       }
 
-      // MOVE COLLECTIBLES & DETECT PICKUP
+      // 12. MOVE COLLECTIBLES & DETECT PICKUP
       for (let i = collectiblesRef.current.length - 1; i >= 0; i--) {
         const col = collectiblesRef.current[i];
         col.x -= deltaX;
@@ -719,15 +688,15 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
             sounds.playCollectItem();
 
             if (col.kind === 'rubber_duck') {
-              setCoins((c) => c + 1);
-              setScore((s) => s + 50);
+              coinsRef.current += 1;
+              scoreRef.current += 50;
               addFloatingText('+1 PATO 🦆', montanhaX + 20, 100, '#f59e0b');
             } else if (col.kind === 'gold_soap') {
-              setScore((s) => s + 30);
+              scoreRef.current += 30;
               addFloatingText('+30 PTS ⭐', montanhaX + 20, 100, '#eab308');
             } else if (col.kind === 'deodorant_can') {
-              setTurboMeter((t) => Math.min(100, t + 25));
-              setScore((s) => s + 40);
+              turboMeterRef.current = Math.min(100, turboMeterRef.current + 25);
+              scoreRef.current += 40;
               addFloatingText('+25% TURBO 💨', montanhaX + 20, 100, '#84cc16');
             }
           }
@@ -738,12 +707,67 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         }
       }
 
+      // 13. UPDATE FLOATING TEXTS (FADE OUT)
+      for (let i = floatingTextsRef.current.length - 1; i >= 0; i--) {
+        const ft = floatingTextsRef.current[i];
+        ft.y -= 38 * dt; // Float up
+        ft.alpha -= 0.9 * dt; // Fade out
+        if (ft.alpha <= 0) {
+          floatingTextsRef.current.splice(i, 1);
+        }
+      }
+
+      // 14. 60FPS HARDWARE ACTION CANVAS DRAW (0.1ms per frame, ZERO React overhead!)
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          drawActionCanvas(
+            ctx,
+            obstaclesRef.current,
+            collectiblesRef.current,
+            attacksRef.current,
+            floatingTextsRef.current,
+            canvas.width,
+            canvas.height
+          );
+        }
+      }
+
+      // 15. THROTTLED REACT STATE UPDATE FOR HUD (~15fps, keeps main thread silky smooth)
+      if (time - lastHudUpdateRef.current > 66) {
+        lastHudUpdateRef.current = time;
+        setDistanceMeters(Math.round(distanceRef.current));
+        setTurboMeter(Math.round(turboMeterRef.current));
+        setPursuerDistance(Math.round(pursuerDistRef.current));
+        setCleanLevel(Math.round(cleanLevelRef.current));
+        setScore(scoreRef.current);
+        setCoins(coinsRef.current);
+        setDodgesCount(dodgesCountRef.current);
+      }
+
       animId = requestAnimationFrame(loop);
     };
 
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, [gameState, pursuerDistance, showSpeech, addFloatingText]);
+  }, [gameState, addFloatingText, showSpeech]);
+
+  // Handle Canvas Resize
+  useEffect(() => {
+    const handleResize = () => {
+      const container = containerRef.current;
+      const canvas = canvasRef.current;
+      if (container && canvas) {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Clean-up timers on unmount
   useEffect(() => {
@@ -760,51 +784,46 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
       className="relative w-full h-screen max-h-screen overflow-hidden select-none bg-sky-200"
       style={{ touchAction: 'none' }}
     >
-      {/* Parallax Background with 5 Domestic Zones */}
+      {/* Parallax Background (GPU CSS scrolling, zero re-render cost) */}
       <Fase2ParallaxBackground
         distanceMeters={distanceMeters}
-        scrollOffset={scrollOffsetRef.current}
+        isTurbo={runnerState === 'turbo'}
       />
 
-      {/* Obstacles and Collectibles Layer */}
-      <ObstaclesLayer
-        obstacles={obstaclesRef.current}
-        collectibles={collectiblesRef.current}
+      {/* 60fps Hardware Canvas for Obstacles, Projectiles, Collectibles & Floating Texts */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 pointer-events-none z-10"
       />
 
-      {/* Water Projectiles & Floating Texts Layer */}
-      <WaterAttacksLayer
-        attacks={attacks}
-        floatingTexts={floatingTexts}
-      />
-
-      {/* CHARACTERS LAYER */}
-      <div className="absolute inset-0 pointer-events-none z-20">
-        {/* Floor Line Height: Bottom 64px */}
+      {/* CHARACTERS LAYER (GPU translate3d positioning, zero layout reflows) */}
+      <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
         <div className="absolute bottom-16 inset-x-0 h-0">
-          {/* Pursuer Character Positioned by Distance */}
+          {/* Pursuer Character Wrapper */}
           <div
-            className="absolute transition-none"
+            ref={pursuerWrapperRef}
+            className="absolute will-change-transform"
             style={{
-              left: `${Math.max(-80, 135 - pursuerDistance * 2.4 - 40)}px`,
+              left: '0px',
               bottom: '0px',
+              transform: `translate3d(${Math.max(-80, 135 - pursuerDistance * 2.4 - 40)}px, 0, 0)`,
             }}
           >
             <PursuerCharacter
-              distance={pursuerDistance}
-              runCycle={runCycleRef.current}
               currentWeapon={currentWeapon}
               isAiming={isAiming}
               isFartNearby={isFartNearby}
             />
           </div>
 
-          {/* Montanha Character */}
+          {/* Montanha Character Wrapper */}
           <div
-            className="absolute transition-all duration-75"
+            ref={montanhaWrapperRef}
+            className="absolute will-change-transform"
             style={{
-              left: `${135 + montanhaXOffset}px`,
-              bottom: `${runnerYRef.current}px`,
+              left: '0px',
+              bottom: '0px',
+              transform: 'translate3d(135px, 0, 0)',
             }}
           >
             {/* Comic Speech Bubble */}
@@ -819,7 +838,6 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
               state={runnerState}
               showFartPuff={showFartPuff}
               isInvulnerable={isInvulnerable}
-              runCycle={runCycleRef.current}
               cleanLevel={cleanLevel}
               isWaterHit={isWaterHit}
             />

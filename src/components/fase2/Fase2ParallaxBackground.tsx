@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { DomesticZone } from '../../types';
 
 interface Fase2ParallaxBackgroundProps {
   distanceMeters: number;
-  scrollOffset: number;
+  isTurbo?: boolean;
 }
 
 export const getZoneFromMeters = (meters: number): { zone: DomesticZone; name: string; icon: string } => {
@@ -14,9 +14,9 @@ export const getZoneFromMeters = (meters: number): { zone: DomesticZone; name: s
   return { zone: 'backyard', name: 'Quintal', icon: '🌳' };
 };
 
-export const Fase2ParallaxBackground: React.FC<Fase2ParallaxBackgroundProps> = ({
+export const Fase2ParallaxBackground: React.FC<Fase2ParallaxBackgroundProps> = memo(({
   distanceMeters,
-  scrollOffset,
+  isTurbo = false,
 }) => {
   const { zone, name, icon } = getZoneFromMeters(distanceMeters);
 
@@ -57,10 +57,7 @@ export const Fase2ParallaxBackground: React.FC<Fase2ParallaxBackgroundProps> = (
   };
 
   const theme = getThemeStyles();
-
-  // Repeating parallax items offset
-  const farOffset = -(scrollOffset * 0.25) % 360;
-  const midOffset = -(scrollOffset * 0.6) % 400;
+  const decorItems = theme.decor.split(' ');
 
   return (
     <div className={`absolute inset-0 select-none overflow-hidden transition-colors duration-1000 ${theme.bg}`}>
@@ -72,26 +69,32 @@ export const Fase2ParallaxBackground: React.FC<Fase2ParallaxBackgroundProps> = (
         </span>
       </div>
 
-      {/* Far Background Parallax Layer */}
+      {/* Far Background Parallax Layer with continuous GPU CSS animation */}
       <div
-        className="absolute top-8 left-0 w-[800px] h-32 flex items-center justify-around opacity-30 text-3xl pointer-events-none transition-none"
-        style={{ transform: `translateX(${farOffset}px)` }}
+        className={`absolute top-8 left-0 w-[1200px] h-32 flex items-center justify-around opacity-30 text-3xl pointer-events-none ${
+          isTurbo ? 'anim-scroll-far-turbo' : 'anim-scroll-far'
+        }`}
       >
-        <span>{theme.decor.split(' ')[0]}</span>
-        <span>{theme.decor.split(' ')[1]}</span>
-        <span>{theme.decor.split(' ')[2]}</span>
-        <span>{theme.decor.split(' ')[3]}</span>
+        <span>{decorItems[0]}</span>
+        <span>{decorItems[1]}</span>
+        <span>{decorItems[2]}</span>
+        <span>{decorItems[3]}</span>
+        <span>{decorItems[0]}</span>
+        <span>{decorItems[1]}</span>
       </div>
 
-      {/* Midground Domestic Wall Elements (Windows, pictures, shelves) */}
+      {/* Midground Domestic Wall Elements with continuous GPU CSS animation */}
       <div
-        className="absolute bottom-28 left-0 w-[800px] h-28 flex items-center justify-around opacity-45 text-4xl pointer-events-none transition-none"
-        style={{ transform: `translateX(${midOffset}px)` }}
+        className={`absolute bottom-28 left-0 w-[1200px] h-28 flex items-center justify-around opacity-45 text-4xl pointer-events-none ${
+          isTurbo ? 'anim-scroll-mid-turbo' : 'anim-scroll-mid'
+        }`}
       >
-        <span>{theme.decor.split(' ')[1]}</span>
-        <span>{theme.decor.split(' ')[3]}</span>
-        <span>{theme.decor.split(' ')[0]}</span>
-        <span>{theme.decor.split(' ')[2]}</span>
+        <span>{decorItems[1]}</span>
+        <span>{decorItems[3]}</span>
+        <span>{decorItems[0]}</span>
+        <span>{decorItems[2]}</span>
+        <span>{decorItems[1]}</span>
+        <span>{decorItems[3]}</span>
       </div>
 
       {/* Floor / Ground */}
@@ -101,4 +104,11 @@ export const Fase2ParallaxBackground: React.FC<Fase2ParallaxBackgroundProps> = (
       </div>
     </div>
   );
-};
+}, (prev, next) => {
+  // Only re-render when zone or turbo state changes
+  const prevZone = getZoneFromMeters(prev.distanceMeters).zone;
+  const nextZone = getZoneFromMeters(next.distanceMeters).zone;
+  return prevZone === nextZone && prev.isTurbo === next.isTurbo;
+});
+
+Fase2ParallaxBackground.displayName = 'Fase2ParallaxBackground';

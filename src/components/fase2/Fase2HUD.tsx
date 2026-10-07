@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { getZoneFromMeters } from './Fase2ParallaxBackground';
 import { Volume2, VolumeX, RotateCcw, ArrowUp, ArrowDown, Zap, Home } from 'lucide-react';
 
@@ -19,7 +19,7 @@ interface Fase2HUDProps {
   onBackToMenu: () => void;
 }
 
-export const Fase2HUD: React.FC<Fase2HUDProps> = ({
+export const Fase2HUD: React.FC<Fase2HUDProps> = memo(({
   cleanLevel,
   distanceMeters,
   score,
@@ -265,4 +265,6 @@ export const Fase2HUD: React.FC<Fase2HUDProps> = ({
       </div>
     </div>
   );
-};
+});
+
+Fase2HUD.displayName = 'Fase2HUD';
