@@ -10,6 +10,7 @@ interface GameHUDProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onRestart: () => void;
+  onSwitchPhase2?: () => void;
 }
 
 const STAGES_LIST: { id: GameStage; name: string; icon: string; short: string }[] = [
@@ -27,6 +28,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   isMuted,
   onToggleMute,
   onRestart,
+  onSwitchPhase2,
 }) => {
   const currentStageIndex = STAGES_LIST.findIndex((s) => s.id === stage);
 
@@ -58,8 +60,19 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
         </div>
 
-        {/* Right Actions: Timer, Sound & Reset */}
-        <div className="flex items-center gap-2">
+        {/* Right Actions: Phase 2 shortcut, Timer, Sound & Reset */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {onSwitchPhase2 && (
+            <button
+              onClick={onSwitchPhase2}
+              title="Jogar Fase 2: Fuga do Banho"
+              className="px-2.5 py-1.5 rounded-2xl bg-gradient-to-r from-lime-500 to-emerald-600 hover:from-lime-600 hover:to-emerald-700 text-white font-black text-xs shadow-sm flex items-center gap-1 active:scale-95 transition cursor-pointer"
+            >
+              <span>🏃💨</span>
+              <span className="hidden sm:inline">Fase 2!</span>
+            </button>
+          )}
+
           {/* Timer Display */}
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border-2 font-bold text-sm shadow-sm transition-colors ${

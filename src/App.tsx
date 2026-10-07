@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GameStage, GameStatus, DirtZone } from './types';
+import { GamePhase, GameStage, GameStatus, DirtZone } from './types';
 import { sounds } from './audio';
 import { GameHUD } from './components/GameHUD';
 import { ToolDrawer } from './components/ToolDrawer';
@@ -9,6 +9,7 @@ import { SpeechBubble } from './components/SpeechBubble';
 import { VictoryModal } from './components/VictoryModal';
 import { GameOverModal } from './components/GameOverModal';
 import { StartScreen } from './components/StartScreen';
+import { Fase2EscapeGame } from './components/fase2/Fase2EscapeGame';
 
 const INITIAL_ZONES: DirtZone[] = [
   { id: 'head', x: 50, y: 26, radius: 24, initialDirt: 1, currentDirt: 1, foamed: 0, scrubbed: 0, rinsed: 0, deodorized: 0, label: 'Rosto' },
@@ -23,6 +24,7 @@ const INITIAL_ZONES: DirtZone[] = [
 ];
 
 export default function App() {
+  const [currentPhase, setCurrentPhase] = useState<GamePhase>('PHASE_1_BATH');
   const [gameStatus, setGameStatus] = useState<GameStatus>('TITLE');
   const [stage, setStage] = useState<GameStage>('SOAP');
   const [zones, setZones] = useState<DirtZone[]>(INITIAL_ZONES);
@@ -118,7 +120,7 @@ export default function App() {
 
   // Check stage completion and automatic advancement
   useEffect(() => {
-    if (gameStatus !== 'PLAYING') return;
+    if (gameStatus !== 'PLAYING' || currentPhase !== 'PHASE_1_BATH') return;
 
     if (stage === 'SOAP' && stageProgress >= 85) {
       sounds.playStageComplete();
@@ -140,11 +142,11 @@ export default function App() {
       setGameStatus('VICTORY');
       setSpeech('UHUUL! Tô limpinho, cheiroso e pronto pro baile!', 6000);
     }
-  }, [stage, stageProgress, gameStatus, setSpeech]);
+  }, [stage, stageProgress, gameStatus, currentPhase, setSpeech]);
 
-  // Countdown timer effect
+  // Countdown timer effect for Phase 1
   useEffect(() => {
-    if (gameStatus !== 'PLAYING') return;
+    if (gameStatus !== 'PLAYING' || currentPhase !== 'PHASE_1_BATH') return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -165,10 +167,11 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gameStatus, setSpeech]);
+  }, [gameStatus, currentPhase, setSpeech]);
 
-  // Start game handler
-  const handleStartGame = (seconds: number) => {
+  // Start game handler for Phase 1
+  const handleStartPhase1 = (seconds: number) => {
+    setCurrentPhase('PHASE_1_BATH');
     setZones(INITIAL_ZONES.map((z) => ({ ...z })));
     setTotalTime(seconds);
     setTimeLeft(seconds);
@@ -177,7 +180,13 @@ export default function App() {
     setSpeech('Passe o sabonete pra fazer bastante espuma!', 3500);
   };
 
-  // Restart match handler
+  // Start game handler for Phase 2
+  const handleStartPhase2 = () => {
+    setCurrentPhase('PHASE_2_ESCAPE');
+    setGameStatus('PLAYING');
+  };
+
+  // Restart match handler for Phase 1
   const handleRestart = () => {
     sounds.playClick();
     setZones(INITIAL_ZONES.map((z) => ({ ...z })));
@@ -192,6 +201,18 @@ export default function App() {
     setIsMuted(next);
   };
 
+  // RENDER FASE 2: FUGA DO BANHO
+  if (currentPhase === 'PHASE_2_ESCAPE' && gameStatus === 'PLAYING') {
+    return (
+      <Fase2EscapeGame
+        onBackToMenu={() => setGameStatus('TITLE')}
+        isMuted={isMuted}
+        onToggleMute={handleToggleMute}
+      />
+    );
+  }
+
+  // RENDER FASE 1: HORA DO BANHO
   return (
     <div className="relative w-full min-h-screen bg-sky-100 bathroom-tiles flex flex-col justify-between overflow-hidden">
       {/* Background Bathroom Decor Elements */}
@@ -210,12 +231,6 @@ export default function App() {
         <span className="text-3xl animate-bounce">🦆</span>
       </div>
 
-      {/* Shower Wall Bar on Right */}
-      <div className="absolute top-28 right-4 select-none pointer-events-none hidden md:flex flex-col items-center gap-2 opacity-75">
-        <div className="w-2 h-36 bg-slate-300 rounded-full border border-slate-400" />
-        <span className="text-xl">🧴</span>
-      </div>
-
       {/* TOP HUD */}
       <GameHUD
         overallDirt={overallDirt}
@@ -225,11 +240,14 @@ export default function App() {
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
         onRestart={handleRestart}
+        onSwitchPhase2={() => {
+          sounds.playClick();
+          handleStartPhase2();
+        }}
       />
 
       {/* CENTER STAGE: MONTANHA & INTERACTION */}
       <main className="relative flex-1 w-full max-w-lg mx-auto flex items-center justify-center px-4 my-auto">
-        {/* Bathroom Tub/Tile Platform Base */}
         <div className="relative w-full flex items-center justify-center">
           {/* Comic Speech Bubble */}
           <SpeechBubble text={speechText} />
@@ -267,7 +285,10 @@ export default function App() {
 
       {/* MODALS */}
       {gameStatus === 'TITLE' && (
-        <StartScreen onStart={handleStartGame} />
+        <StartScreen
+          onStartPhase1={handleStartPhase1}
+          onStartPhase2={handleStartPhase2}
+        />
       )}
 
       {gameStatus === 'VICTORY' && (
@@ -275,6 +296,10 @@ export default function App() {
           timeLeft={timeLeft}
           totalTime={totalTime}
           onPlayAgain={handleRestart}
+          onNextPhase={() => {
+            sounds.playClick();
+            handleStartPhase2();
+          }}
         />
       )}
 

@@ -3,10 +3,11 @@ import { sounds } from '../audio';
 import { Play, Sparkles } from 'lucide-react';
 
 interface StartScreenProps {
-  onStart: (seconds: number) => void;
+  onStartPhase1: (seconds: number) => void;
+  onStartPhase2: () => void;
 }
 
-export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
+export const StartScreen: React.FC<StartScreenProps> = ({ onStartPhase1, onStartPhase2 }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sky-950/50 backdrop-blur-xs select-none">
       <div className="relative w-full max-w-md bg-white rounded-3xl border-4 border-sky-400 p-6 sm:p-7 shadow-2xl flex flex-col items-center text-center overflow-hidden">
@@ -23,50 +24,56 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
           Limpa o Montanha!
         </h1>
 
-        <p className="text-sm font-bold text-sky-700 mt-1 max-w-xs">
-          O Montanha chegou do futebol sujo, suado e com as mosquinhas na cola. Ajude-o a ficar cheiroso antes do tempo acabar!
+        <p className="text-xs sm:text-sm font-bold text-sky-700 mt-1 max-w-xs">
+          O grandalhão mais simpático e engraçado dos games! Escolha uma das fases abaixo para jogar:
         </p>
 
-        {/* 4 Steps Guide */}
-        <div className="w-full bg-sky-50 rounded-2xl border-2 border-sky-200 p-3.5 my-4 flex flex-col gap-2 text-left">
-          <span className="text-xs font-black text-sky-900 uppercase tracking-wider flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Como Jogar (4 Etapas):
-          </span>
+        {/* Phase Selection Cards */}
+        <div className="w-full flex flex-col gap-3 my-4">
+          {/* Phase 1 Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              onStartPhase1(60);
+            }}
+            className="w-full p-3.5 rounded-2xl bg-sky-50 hover:bg-sky-100 border-2 border-sky-300 flex items-center justify-between text-left transition active:scale-98 cursor-pointer shadow-sm group"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-3xl group-hover:scale-110 transition-transform">🧼</span>
+              <div>
+                <span className="text-xs font-black text-sky-600 uppercase tracking-wide block">Fase 1</span>
+                <span className="text-sm font-black text-sky-950">Hora do Banho!</span>
+                <p className="text-[11px] font-semibold text-slate-500 leading-tight">Sabonete, bucha, água e desodorante 48h</p>
+              </div>
+            </div>
+            <Play className="w-5 h-5 text-sky-600 fill-current shrink-0" />
+          </button>
 
-          <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-700">
-            <div className="bg-white p-2 rounded-xl border border-sky-100 flex items-center gap-2">
-              <span className="text-lg">🧼</span>
-              <span>1. Passe sabonete</span>
+          {/* Phase 2 Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              onStartPhase2();
+            }}
+            className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-amber-50 via-lime-50 to-emerald-50 hover:from-amber-100 hover:to-emerald-100 border-2 border-lime-500 flex items-center justify-between text-left transition active:scale-98 cursor-pointer shadow-md group relative overflow-hidden ring-2 ring-lime-400/50"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-3xl group-hover:scale-110 transition-transform">🏃💨</span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black text-emerald-700 uppercase tracking-wide">Fase 2</span>
+                  <span className="bg-lime-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">NOVA!</span>
+                </div>
+                <span className="text-sm font-black text-slate-900">Fuga do Banho!</span>
+                <p className="text-[11px] font-semibold text-slate-600 leading-tight">Endless runner, obstáculos e Gás Turbo!</p>
+              </div>
             </div>
-            <div className="bg-white p-2 rounded-xl border border-sky-100 flex items-center gap-2">
-              <span className="text-lg">🧽</span>
-              <span>2. Esfregue bucha</span>
-            </div>
-            <div className="bg-white p-2 rounded-xl border border-sky-100 flex items-center gap-2">
-              <span className="text-lg">🚿</span>
-              <span>3. Enxágue água</span>
-            </div>
-            <div className="bg-white p-2 rounded-xl border border-sky-100 flex items-center gap-2">
-              <span className="text-lg">🧴</span>
-              <span>4. Desodorante 48h</span>
-            </div>
-          </div>
+            <Play className="w-5 h-5 text-emerald-600 fill-current shrink-0" />
+          </button>
         </div>
 
-        {/* Action Button */}
-        <button
-          onClick={() => {
-            sounds.playClick();
-            onStart(60);
-          }}
-          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-lg shadow-lg shadow-emerald-400/40 border-2 border-emerald-600 flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95"
-        >
-          <Play className="w-6 h-6 fill-current" />
-          Começar o Banho! (60s)
-        </button>
-
-        <p className="text-[11px] font-semibold text-slate-400 mt-3">
-          💡 Clique e arraste o mouse ou o dedo sobre o corpo do Montanha
+        <p className="text-[11px] font-semibold text-slate-400">
+          💡 Compatível com computador e celular (mouse, teclado e toque na tela)
         </p>
       </div>
     </div>

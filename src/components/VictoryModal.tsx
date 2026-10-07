@@ -7,12 +7,14 @@ interface VictoryModalProps {
   timeLeft: number;
   totalTime: number;
   onPlayAgain: () => void;
+  onNextPhase?: () => void;
 }
 
 export const VictoryModal: React.FC<VictoryModalProps> = ({
   timeLeft,
   totalTime,
   onPlayAgain,
+  onNextPhase,
 }) => {
   // Determine star rating (1 to 3)
   const timeUsed = totalTime - timeLeft;
@@ -142,17 +144,32 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           “Nossa, nunca me senti tão cheiroso e revigorado! Valeu demais, parceiro!”
         </blockquote>
 
-        {/* Restart Button */}
-        <button
-          onClick={() => {
-            sounds.playClick();
-            onPlayAgain();
-          }}
-          className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-black text-base shadow-lg shadow-sky-400/40 border-2 border-sky-600 flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95"
-        >
-          <RotateCcw className="w-5 h-5" />
-          Dar Outro Banho no Montanha!
-        </button>
+        {/* Action Buttons: Next Phase or Replay */}
+        <div className="w-full flex flex-col gap-2.5">
+          {onNextPhase && (
+            <button
+              onClick={() => {
+                sounds.playClick();
+                onNextPhase();
+              }}
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-black text-base shadow-lg shadow-emerald-400/40 border-2 border-emerald-600 flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95 animate-pulse"
+            >
+              <span>🏃💨</span>
+              PRÓXIMA FASE: FUGA DO BANHO!
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              sounds.playClick();
+              onPlayAgain();
+            }}
+            className="w-full py-2.5 px-5 rounded-2xl bg-sky-100 hover:bg-sky-200 text-sky-900 font-black text-sm border border-sky-300 flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Dar Outro Banho no Montanha
+          </button>
+        </div>
       </div>
     </div>
   );
