@@ -1,0 +1,7 @@
+{
+  "name": "Limpa o Montanha",
+  "description": "Jogo web divertido e interativo para dar banho no Montanha: passe sabonete, esfregue com bucha, enxágue e deixe ele cheiroso antes do tempo acabar!",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
