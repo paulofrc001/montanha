@@ -56,7 +56,8 @@ export type ObstacleKind =
   | 'laundry_basket'  // cesto de roupas sujas (chão)
   | 'towel_hanging'   // toalha pendurada no varal/porta (alto - abaixar!)
   | 'flying_sponge'   // bucha voando / arremessada (alto - abaixar!)
-  | 'shower_hose';    // mangueira esticada (alto ou médio)
+  | 'shower_hose'     // mangueira esticada (alto ou médio)
+  | 'mud_puddle';     // poça de barro fresco (chão - dá lama/recupera sujeira!)
 
 export interface RunnerObstacle {
   id: number;
@@ -93,4 +94,24 @@ export interface DomesticZoneInfo {
   floorColor: string;
   wallDecor: string;
 }
+
+// --- FASE 2: ATTACKS & DIFFICULTY ---
+export type DifficultyLevel = 'FACIL' | 'NORMAL' | 'DIFICIL';
+
+export type WaterAttackType = 'hose_low' | 'hose_high' | 'water_gun' | 'bucket_lob' | 'super_jet';
+
+export interface WaterAttack {
+  id: number;
+  type: WaterAttackType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  cleanPower: number; // e.g. 3 to 20%
+  speed: number;
+  isHigh: boolean;
+  isLob?: boolean;
+  active: boolean;
+}
+
 

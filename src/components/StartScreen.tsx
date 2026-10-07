@@ -65,7 +65,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStartPhase1, onStart
                   <span className="bg-lime-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">NOVA!</span>
                 </div>
                 <span className="text-sm font-black text-slate-900">Fuga do Banho!</span>
-                <p className="text-[11px] font-semibold text-slate-600 leading-tight">Endless runner, obstáculos e Gás Turbo!</p>
+                <p className="text-[11px] font-semibold text-slate-600 leading-tight">Desvie dos jatos d'água, use o Gás Turbo e fique sujo o maior tempo possível!</p>
               </div>
             </div>
             <Play className="w-5 h-5 text-emerald-600 fill-current shrink-0" />

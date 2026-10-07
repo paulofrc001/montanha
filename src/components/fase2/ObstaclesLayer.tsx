@@ -51,6 +51,20 @@ export const ObstaclesLayer: React.FC<ObstaclesLayerProps> = ({
           </svg>
         );
 
+      case 'mud_puddle':
+        return (
+          <svg viewBox="0 0 64 34" className="w-full h-full drop-shadow animate-pulse">
+            {/* Rich brown mud puddle that restores dirt! */}
+            <ellipse cx="32" cy="20" rx="30" ry="11" fill="#78350f" stroke="#451a03" strokeWidth="2" />
+            <ellipse cx="26" cy="18" rx="20" ry="7" fill="#92400e" opacity="0.9" />
+            {/* Mud splatters & steam */}
+            <circle cx="14" cy="12" r="3" fill="#78350f" />
+            <circle cx="48" cy="10" r="3.5" fill="#78350f" />
+            <ellipse cx="38" cy="21" rx="4" ry="2" fill="#b45309" />
+            <text x="12" y="8" fontSize="8" fontWeight="900" fill="#fef08a">LAMA! 💩</text>
+          </svg>
+        );
+
       case 'duck':
         return (
           <svg viewBox="0 0 45 45" className="w-full h-full drop-shadow">
