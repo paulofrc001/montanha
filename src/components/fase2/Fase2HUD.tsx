@@ -242,22 +242,22 @@ export const Fase2HUD: React.FC<Fase2HUDProps> = ({
         {/* Center: Turbo Blast Button (Mobile accessible) */}
         {isTurboReady ? (
           <button
-            onClick={onTriggerTurbo}
-            className="pointer-events-auto px-5 py-3.5 rounded-2xl bg-gradient-to-r from-lime-500 to-emerald-600 border-3 border-lime-700 shadow-xl flex items-center gap-2 text-white font-black text-xs animate-bounce active:scale-95 transition-transform"
+            onPointerDown={onTriggerTurbo}
+            className="pointer-events-auto px-5 py-3.5 rounded-2xl bg-gradient-to-r from-lime-500 to-emerald-600 border-3 border-lime-700 shadow-xl flex items-center gap-2 text-white font-black text-xs animate-bounce active:scale-95 transition-transform cursor-pointer touch-none select-none"
           >
             <Zap className="w-5 h-5 fill-current" />
             <span>SOLTAR TURBO! 💨</span>
           </button>
         ) : (
-          <div className="bg-black/40 backdrop-blur-xs text-white text-[10px] font-bold px-3 py-1.5 rounded-xl border border-white/20">
-            Turbo: {Math.round(turboMeter)}%
+          <div className="bg-black/50 backdrop-blur-xs text-white text-[10px] font-black px-3 py-1.5 rounded-xl border border-white/20 select-none">
+            🚀 TURBO: {Math.round(turboMeter)}%
           </div>
         )}
 
         {/* Right Hand: Jump / Pular button */}
         <button
-          onClick={onJump}
-          className="pointer-events-auto w-20 h-20 rounded-3xl bg-sky-400/90 active:bg-sky-500 border-4 border-sky-600 shadow-xl flex flex-col items-center justify-center text-sky-950 font-black text-xs active:scale-90 transition-transform touch-none select-none backdrop-blur-xs"
+          onPointerDown={onJump}
+          className="pointer-events-auto w-20 h-20 rounded-3xl bg-sky-400/90 active:bg-sky-500 border-4 border-sky-600 shadow-xl flex flex-col items-center justify-center text-sky-950 font-black text-xs active:scale-90 transition-transform touch-none select-none backdrop-blur-xs cursor-pointer"
         >
           <ArrowUp className="w-8 h-8 stroke-[3]" />
           <span>PULAR</span>

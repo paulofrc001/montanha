@@ -5,23 +5,12 @@ class SoundManager {
   private isMuted: boolean = false;
   private sprayNode: AudioNode | null = null;
   private showerNode: AudioNode | null = null;
-  private officialFartAudio: HTMLAudioElement | null = null;
 
   constructor() {
     // Check localStorage preference
     const saved = localStorage.getItem('limpa_montanha_muted');
     if (saved === 'true') {
       this.isMuted = true;
-    }
-
-    // Preload the official user-provided flatulence audio file attached to the project
-    if (typeof window !== 'undefined') {
-      try {
-        this.officialFartAudio = new Audio('/pum.mp3');
-        this.officialFartAudio.preload = 'auto';
-      } catch (err) {
-        // audio element fallback
-      }
     }
   }
 
@@ -310,31 +299,13 @@ class SoundManager {
     osc.stop(now + 0.05);
   }
 
-  // --- OFICIAL FLATULENCE AUDIO (Using exact attached project audio file) ---
+  // Fart sound completely removed/disabled as requested to avoid any game stutter or freezing
   public playOfficialFart() {
-    if (this.isMuted) return;
-
-    if (!this.officialFartAudio) {
-      this.officialFartAudio = new Audio('/pum.mp3');
-    }
-
-    try {
-      this.officialFartAudio.currentTime = 0;
-      const playPromise = this.officialFartAudio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          // Fallback to wav file if needed
-          const wav = new Audio('/pum.wav');
-          wav.play().catch(() => {});
-        });
-      }
-    } catch (e) {
-      // browser audio policy handling
-    }
+    // Silent: eliminated to prevent freezing the game
   }
 
   public playFart() {
-    this.playOfficialFart();
+    // Silent: eliminated to prevent freezing the game
   }
 
   // Water Jet Hit Splash on Montanha
@@ -372,43 +343,9 @@ class SoundManager {
     whiteNoise.stop(now + 0.15);
   }
 
-  // Super Loud Thunder Fart with exaggerated comic boom (for dodges!)
+  // Exaggerated dodge sound (swift cartoon whoosh instead of stuttery audio)
   public playLoudThunderFart() {
-    if (this.isMuted) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-
-    // 1. Bass rumble toot
-    const bassOsc = this.ctx.createOscillator();
-    const bassGain = this.ctx.createGain();
-    bassOsc.type = 'sawtooth';
-    bassOsc.frequency.setValueAtTime(130, now);
-    bassOsc.frequency.exponentialRampToValueAtTime(45, now + 0.35);
-
-    bassGain.gain.setValueAtTime(0.35, now);
-    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
-
-    bassOsc.connect(bassGain);
-    bassGain.connect(this.ctx.destination);
-    bassOsc.start(now);
-    bassOsc.stop(now + 0.38);
-
-    // 2. High squeaky rasp
-    const raspOsc = this.ctx.createOscillator();
-    const raspGain = this.ctx.createGain();
-    raspOsc.type = 'square';
-    raspOsc.frequency.setValueAtTime(240, now);
-    raspOsc.frequency.linearRampToValueAtTime(90, now + 0.28);
-
-    raspGain.gain.setValueAtTime(0.25, now);
-    raspGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-
-    raspOsc.connect(raspGain);
-    raspGain.connect(this.ctx.destination);
-    raspOsc.start(now);
-    raspOsc.stop(now + 0.3);
+    this.playWhooshDodge();
   }
 
   // Towel drying / flapping sound

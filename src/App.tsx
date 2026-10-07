@@ -97,8 +97,8 @@ export default function App() {
     setDodgesCount((d) => d + 1);
     setFartsCount((f) => f + 1);
 
-    // Play loud exaggerated thunder fart
-    sounds.playLoudThunderFart();
+    // Play swift cartoon dodge whoosh sound
+    sounds.playWhooshDodge();
 
     // Trigger visual fart cloud & screen shake
     setShowDodgeFart(true);

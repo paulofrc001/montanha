@@ -157,21 +157,40 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
     }, duration);
   }, []);
 
-  // Jump Action
+  // Ref for jump buffering (coyote time / jump buffer)
+  const jumpBufferedRef = useRef<boolean>(false);
+
+  // Jump Action with dynamic buffering
   const handleJump = useCallback(() => {
     if (gameState !== 'PLAYING') return;
-    if (isJumpingRef.current || isDuckingRef.current) return;
+
+    if (isJumpingRef.current) {
+      // Buffer jump if near ground
+      if (runnerYRef.current < 45) {
+        jumpBufferedRef.current = true;
+      }
+      return;
+    }
+
+    if (isDuckingRef.current) {
+      isDuckingRef.current = false;
+    }
 
     sounds.playJump();
     isJumpingRef.current = true;
-    runnerVyRef.current = 14.5; // Jump velocity
+    runnerVyRef.current = 14.8; // Snappy jump velocity
     setRunnerState('jumping');
   }, [gameState]);
 
-  // Duck Action
+  // Duck Action with Fast-Fall
   const handleDuckStart = useCallback(() => {
     if (gameState !== 'PLAYING') return;
-    if (isJumpingRef.current) return;
+
+    if (isJumpingRef.current) {
+      // Fast-fall: immediately dive down to avoid high jets or land quickly
+      runnerVyRef.current = Math.min(runnerVyRef.current, -8.5);
+      return;
+    }
 
     if (!isDuckingRef.current) {
       sounds.playDuckSlide();
@@ -325,16 +344,25 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
       // Run cycle animation
       runCycleRef.current = (runCycleRef.current + dt * (currentSpeed / 40)) % 1;
 
-      // JUMP PHYSICS
+      // JUMP PHYSICS (Delta-time normalized for ultra-smooth 60/120fps across all screens)
       if (isJumpingRef.current) {
-        runnerYRef.current += runnerVyRef.current;
-        runnerVyRef.current -= 34 * dt; // Gravity
+        const timeScale = Math.min(2.5, dt * 60);
+        runnerYRef.current += runnerVyRef.current * timeScale;
+        runnerVyRef.current -= 0.62 * timeScale; // Smooth natural gravity
 
         if (runnerYRef.current <= 0) {
           runnerYRef.current = 0;
           runnerVyRef.current = 0;
           isJumpingRef.current = false;
-          if (isDuckingRef.current) {
+
+          // Check if user pressed jump right before touching ground (jump buffer)
+          if (jumpBufferedRef.current) {
+            jumpBufferedRef.current = false;
+            sounds.playJump();
+            isJumpingRef.current = true;
+            runnerVyRef.current = 14.8;
+            setRunnerState('jumping');
+          } else if (isDuckingRef.current) {
             setRunnerState('ducking');
           } else {
             setRunnerState(isTurboActiveRef.current ? 'turbo' : 'running');
@@ -352,9 +380,9 @@ export const Fase2EscapeGame: React.FC<Fase2EscapeGameProps> = ({
         return Math.max(12, Math.min(95, prev + change));
       });
 
-      // RANDOM COMIC FLATULENCE TRIGGER
+      // RANDOM COMIC FLATULENCE TRIGGER (Purely visual & silent - NO freezing audio!)
       if (Date.now() > nextFartTimeRef.current && !isTurboActiveRef.current) {
-        sounds.playOfficialFart();
+        // Comic visual puff without any audio freeze
         setShowFartPuff(true);
         setTimeout(() => setShowFartPuff(false), 1400);
 
