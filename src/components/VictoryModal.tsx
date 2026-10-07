@@ -6,6 +6,9 @@ import { Star, RotateCcw, Sparkles } from 'lucide-react';
 interface VictoryModalProps {
   timeLeft: number;
   totalTime: number;
+  dodgesCount?: number;
+  fartsCount?: number;
+  score?: number;
   onPlayAgain: () => void;
   onNextPhase?: () => void;
 }
@@ -13,6 +16,9 @@ interface VictoryModalProps {
 export const VictoryModal: React.FC<VictoryModalProps> = ({
   timeLeft,
   totalTime,
+  dodgesCount = 0,
+  fartsCount = 0,
+  score = 100,
   onPlayAgain,
   onNextPhase,
 }) => {
@@ -21,12 +27,12 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   let stars = 3;
   let rankTitle = 'Mestre dos Banhos!';
 
-  if (timeLeft < 12) {
+  if (timeLeft < 15 || dodgesCount > 7) {
     stars = 1;
     rankTitle = 'Limpador no Sufoco!';
-  } else if (timeLeft < 25) {
+  } else if (timeLeft < 30 || dodgesCount > 4) {
     stars = 2;
-    rankTitle = 'Especialista em Espuma!';
+    rankTitle = 'Especialista em Pegar o Montanha!';
   }
 
   // Trigger confetti burst on open
@@ -73,14 +79,14 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
         </div>
 
         <h2 className="text-2xl sm:text-3xl font-black text-sky-950 tracking-tight">
-          Montanha Tá Cheiroso!
+          MONTANHA FOI LIMPO!
         </h2>
         <p className="text-sm font-semibold text-sky-700 mt-1">
-          {rankTitle} O grandalhão está limpinho da cabeça aos pés!
+          {rankTitle} Ele tentou desviar e soltar pum, mas o banho venceu!
         </p>
 
         {/* Star Rating Display */}
-        <div className="flex items-center justify-center gap-2 my-5">
+        <div className="flex items-center justify-center gap-2 my-4">
           {[1, 2, 3].map((starIndex) => {
             const isEarned = starIndex <= stars;
             return (
@@ -111,41 +117,36 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           })}
         </div>
 
-        {/* Game Stats Card */}
-        <div className="w-full bg-sky-50 rounded-2xl border-2 border-sky-200 p-3.5 mb-5 flex items-center justify-around text-xs sm:text-sm">
-          <div className="flex flex-col items-center">
-            <span className="text-slate-500 font-semibold">Tempo Restante</span>
-            <span className="text-base sm:text-lg font-black text-sky-900">
-              {timeLeft}s
-            </span>
+        {/* Game Stats Card with Dodges and Farts */}
+        <div className="w-full bg-sky-50 rounded-2xl border-2 border-sky-200 p-3 mb-4 grid grid-cols-4 gap-1 text-center text-xs">
+          <div>
+            <span className="text-slate-500 font-bold block text-[10px]">Tempo Total</span>
+            <span className="text-sm font-black text-sky-900">{timeUsed}s</span>
           </div>
 
-          <div className="w-px h-8 bg-sky-200" />
-
-          <div className="flex flex-col items-center">
-            <span className="text-slate-500 font-semibold">Tempo de Banho</span>
-            <span className="text-base sm:text-lg font-black text-sky-900">
-              {timeUsed}s
-            </span>
+          <div>
+            <span className="text-slate-500 font-bold block text-[10px]">Desvios</span>
+            <span className="text-sm font-black text-amber-700">🏃‍♂️ {dodgesCount}</span>
           </div>
 
-          <div className="w-px h-8 bg-sky-200" />
+          <div>
+            <span className="text-slate-500 font-bold block text-[10px]">Puns</span>
+            <span className="text-sm font-black text-lime-700">💨 {fartsCount}</span>
+          </div>
 
-          <div className="flex flex-col items-center">
-            <span className="text-slate-500 font-semibold">Higiene Final</span>
-            <span className="text-base sm:text-lg font-black text-emerald-600 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> 100%
-            </span>
+          <div>
+            <span className="text-slate-500 font-bold block text-[10px]">Pontuação</span>
+            <span className="text-sm font-black text-emerald-600">⭐ {score}</span>
           </div>
         </div>
 
         {/* Montanha's happy speech quote */}
-        <blockquote className="bg-amber-50 text-amber-950 font-bold text-xs sm:text-sm italic px-4 py-2.5 rounded-xl border border-amber-300 mb-5 w-full">
-          “Nossa, nunca me senti tão cheiroso e revigorado! Valeu demais, parceiro!”
+        <blockquote className="bg-amber-50 text-amber-950 font-bold text-xs italic px-4 py-2.5 rounded-xl border border-amber-300 mb-4 w-full">
+          “Tentei escapar de todo jeito, mas admito... Tô cheiroso demais! Valeu!”
         </blockquote>
 
         {/* Action Buttons: Next Phase or Replay */}
-        <div className="w-full flex flex-col gap-2.5">
+        <div className="w-full flex flex-col gap-2">
           {onNextPhase && (
             <button
               onClick={() => {
@@ -155,7 +156,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
               className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-black text-base shadow-lg shadow-emerald-400/40 border-2 border-emerald-600 flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95 animate-pulse"
             >
               <span>🏃💨</span>
-              PRÓXIMA FASE: FUGA DO BANHO!
+              IR PARA FASE 2
             </button>
           )}
 
@@ -167,7 +168,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             className="w-full py-2.5 px-5 rounded-2xl bg-sky-100 hover:bg-sky-200 text-sky-900 font-black text-sm border border-sky-300 flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95"
           >
             <RotateCcw className="w-4 h-4" />
-            Dar Outro Banho no Montanha
+            REJOGAR
           </button>
         </div>
       </div>

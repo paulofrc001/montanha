@@ -7,6 +7,8 @@ interface GameHUDProps {
   timeLeft: number;
   stage: GameStage;
   stageProgress: number; // 0 to 100
+  dodgesCount: number;
+  fartsCount: number;
   isMuted: boolean;
   onToggleMute: () => void;
   onRestart: () => void;
@@ -14,10 +16,11 @@ interface GameHUDProps {
 }
 
 const STAGES_LIST: { id: GameStage; name: string; icon: string; short: string }[] = [
-  { id: 'SOAP', name: 'Passar Sabonete', icon: '🧼', short: 'Sabão' },
-  { id: 'SCRUB', name: 'Esfregar Bucha', icon: '🧽', short: 'Bucha' },
-  { id: 'RINSE', name: 'Enxaguar Água', icon: '🚿', short: 'Enxágue' },
-  { id: 'DEODORANT', name: 'Desodorante 48h', icon: '🧴', short: 'Cheirinho' },
+  { id: 'SOAP', name: 'Passar Sabonete', icon: '🧼', short: '1. Sabão' },
+  { id: 'SCRUB', name: 'Esfregar Bucha', icon: '🧽', short: '2. Bucha' },
+  { id: 'RINSE', name: 'Enxaguar Água', icon: '🚿', short: '3. Água' },
+  { id: 'TOWEL', name: 'Secar com Toalha', icon: '🧣', short: '4. Toalha' },
+  { id: 'DEODORANT', name: 'Desodorante 48h', icon: '🧴', short: '5. Desodor.' },
 ];
 
 export const GameHUD: React.FC<GameHUDProps> = ({
@@ -25,6 +28,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   timeLeft,
   stage,
   stageProgress,
+  dodgesCount,
+  fartsCount,
   isMuted,
   onToggleMute,
   onRestart,
@@ -43,7 +48,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   const isLowTime = timeLeft <= 15;
 
   return (
-    <header className="w-full max-w-2xl mx-auto px-4 pt-3 pb-2 flex flex-col gap-2.5 z-30 select-none">
+    <header className="w-full max-w-2xl mx-auto px-4 pt-3 pb-2 flex flex-col gap-2 z-30 select-none">
       {/* Top Bar: Title & Quick Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -52,10 +57,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-sky-950 tracking-tight leading-none">
-              Limpa o Montanha!
+              Pega o Montanha!
             </h1>
             <p className="text-xs text-sky-700 font-semibold">
-              Hora do banho do grandalhão
+              Ele não quer tomar banho e foge do sabão!
             </p>
           </div>
         </div>
@@ -106,25 +111,33 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
-      {/* Dirt & Stink Bar */}
+      {/* Dirt & Stink Bar + Dodges & Farts Counters */}
       <div className="bg-white/90 backdrop-blur-sm p-3 rounded-2xl border-2 border-sky-200 shadow-sm flex flex-col gap-1.5">
-        <div className="flex items-center justify-between text-xs sm:text-sm font-bold">
+        <div className="flex items-center justify-between text-xs sm:text-sm font-bold flex-wrap gap-1">
           <div className="flex items-center gap-1.5 text-slate-700">
-            <span>{overallDirt > 25 ? '🦨 Sujeira & Mau Cheiro:' : '✨ Higiene do Montanha:'}</span>
+            <span>{overallDirt > 25 ? '🦨 Mau Cheiro:' : '✨ Higiene:'}</span>
             <span className={overallDirt > 25 ? 'text-amber-800' : 'text-emerald-700 font-extrabold'}>
-              {overallDirt > 0 ? `${Math.round(overallDirt)}% de craca` : '100% Cheiroso!'}
+              {overallDirt > 0 ? `${Math.round(overallDirt)}% de sujeira` : '100% Cheiroso!'}
             </span>
           </div>
 
-          <div className="flex items-center gap-1 text-sky-700">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>{cleanliness}% Limpo</span>
+          {/* Dodges & Farts Counter Badges */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-lg border border-amber-300 font-black">
+              🏃‍♂️ Desvios: {dodgesCount}
+            </span>
+            <span className="bg-lime-100 text-lime-900 px-2 py-0.5 rounded-lg border border-lime-300 font-black">
+              💨 Puns: {fartsCount}
+            </span>
+            <span className="text-sky-700 flex items-center gap-0.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              {cleanliness}% Limpo
+            </span>
           </div>
         </div>
 
         {/* Dirt Progress Track */}
         <div className="relative w-full h-4 bg-slate-200 rounded-full overflow-hidden border border-slate-300 shadow-inner">
-          {/* Fill Bar */}
           <div
             className={`h-full transition-all duration-300 rounded-full flex items-center justify-end pr-1 ${
               overallDirt > 50
@@ -142,8 +155,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
-      {/* 4 Steps Segmented Indicator */}
-      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+      {/* 5 Steps Segmented Indicator */}
+      <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
         {STAGES_LIST.map((s, index) => {
           const isDone = index < currentStageIndex;
           const isCurrent = index === currentStageIndex;
@@ -151,7 +164,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           return (
             <div
               key={s.id}
-              className={`py-1.5 px-1 sm:px-2 rounded-xl border-2 flex flex-col items-center justify-center text-center transition-all ${
+              className={`py-1.5 px-1 rounded-xl border-2 flex flex-col items-center justify-center text-center transition-all ${
                 isCurrent
                   ? 'bg-sky-500 border-sky-600 text-white shadow-md scale-[1.02]'
                   : isDone
@@ -159,11 +172,11 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                   : 'bg-white/70 border-slate-200 text-slate-400 opacity-70'
               }`}
             >
-              <div className="flex items-center gap-1 text-xs font-bold leading-tight">
+              <div className="flex items-center gap-1 text-[11px] sm:text-xs font-bold leading-tight">
                 <span>{isDone ? '✅' : s.icon}</span>
                 <span className="hidden sm:inline">{s.short}</span>
               </div>
-              <span className="text-[10px] font-semibold mt-0.5 opacity-90">
+              <span className="text-[9px] sm:text-[10px] font-semibold mt-0.5 opacity-90 truncate w-full">
                 {isDone ? 'Concluído' : isCurrent ? `${Math.round(stageProgress)}%` : `Etapa ${index + 1}`}
               </span>
             </div>

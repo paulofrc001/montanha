@@ -1,6 +1,8 @@
 export type GamePhase = 'PHASE_1_BATH' | 'PHASE_2_ESCAPE';
 
-export type GameStage = 'SOAP' | 'SCRUB' | 'RINSE' | 'DEODORANT';
+export type GameStage = 'SOAP' | 'SCRUB' | 'RINSE' | 'TOWEL' | 'DEODORANT';
+
+export type DodgePose = 'normal' | 'lean_left' | 'lean_right' | 'guard_belly' | 'raise_arms' | 'turn_away' | 'duck';
 
 export interface DirtZone {
   id: string;
@@ -12,6 +14,7 @@ export interface DirtZone {
   foamed: number; // 0.0 to 1.0 (soap coverage)
   scrubbed: number; // 0.0 to 1.0
   rinsed: number; // 0.0 to 1.0
+  dried: number; // 0.0 to 1.0 (towel drying)
   deodorized: number; // 0.0 to 1.0
   label: string;
 }

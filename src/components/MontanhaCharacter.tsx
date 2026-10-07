@@ -1,5 +1,5 @@
 import React from 'react';
-import { GameStage, DirtZone } from '../types';
+import { GameStage, DirtZone, DodgePose } from '../types';
 
 interface MontanhaCharacterProps {
   stage: GameStage;
@@ -9,6 +9,10 @@ interface MontanhaCharacterProps {
   isGameOver: boolean;
   isScrubbing: boolean;
   bubbleCount: number;
+  offsetX?: number;
+  offsetY?: number;
+  dodgePose?: DodgePose;
+  showDodgeFart?: boolean;
 }
 
 export const MontanhaCharacter: React.FC<MontanhaCharacterProps> = ({
@@ -19,27 +23,77 @@ export const MontanhaCharacter: React.FC<MontanhaCharacterProps> = ({
   isGameOver,
   isScrubbing,
   bubbleCount,
+  offsetX = 0,
+  offsetY = 0,
+  dodgePose = 'normal',
+  showDodgeFart = false,
 }) => {
   // Eye state:
-  // When victory: joyful squint with star eyes
-  // When scrubbing: joyful squinting / laughing
-  // When high dirt: sheepish / tired look
   const isHappy = isVictory || isScrubbing || stage === 'DEODORANT';
   const showStink = overallDirt > 25 && !isVictory;
   const showFlies = overallDirt > 40 && !isVictory;
   const showSweat = overallDirt > 35 && !isVictory;
 
+  // Pose transformation styles
+  const getPoseClass = () => {
+    switch (dodgePose) {
+      case 'lean_left':
+        return '-rotate-12 -translate-x-3';
+      case 'lean_right':
+        return 'rotate-12 translate-x-3';
+      case 'guard_belly':
+        return 'scale-[0.98] translate-y-1';
+      case 'raise_arms':
+        return 'scale-y-[1.04] -translate-y-2';
+      case 'turn_away':
+        return 'scale-x-[0.9] -rotate-6';
+      case 'duck':
+        return 'scale-y-[0.82] scale-x-[1.12] translate-y-6';
+      default:
+        return '';
+    }
+  };
+
   return (
-    <div className="relative w-full max-w-[420px] aspect-[4/5] mx-auto select-none pointer-events-none flex items-center justify-center">
+    <div
+      className="relative w-full max-w-[420px] aspect-[4/5] mx-auto select-none pointer-events-none flex items-center justify-center transition-transform duration-200 ease-out"
+      style={{
+        transform: `translate(${offsetX}px, ${offsetY}px)`,
+      }}
+    >
       {/* Sparkle background glow on victory */}
       {isVictory && (
         <div className="absolute inset-0 -inset-x-8 rounded-full bg-gradient-to-t from-amber-200/40 via-sky-200/50 to-pink-200/40 blur-2xl animate-pulse pointer-events-none -z-10" />
       )}
 
+      {/* Comic Loud Dodge Fart Cloud */}
+      {showDodgeFart && (
+        <div className="absolute left-[-20px] bottom-[22%] z-30 pointer-events-none animate-bounce">
+          <svg width="100" height="75" viewBox="0 0 100 75" className="drop-shadow-xl">
+            {/* Big green fart cloud blobs */}
+            <g fill="#84cc16" opacity="0.9">
+              <ellipse cx="65" cy="40" rx="22" ry="16" />
+              <circle cx="45" cy="30" r="18" fill="#a3e635" />
+              <circle cx="28" cy="42" r="15" />
+              <circle cx="15" cy="48" r="11" fill="#bef264" />
+              <ellipse cx="50" cy="50" rx="16" ry="12" />
+            </g>
+            {/* Wind lines and comic stars */}
+            <path d="M 85 45 Q 60 35 40 48 T 10 40" fill="none" stroke="#4d7c0f" strokeWidth="3" strokeLinecap="round" />
+            <path d="M 75 25 Q 55 18 35 28" fill="none" stroke="#4d7c0f" strokeWidth="2.5" strokeLinecap="round" />
+            {/* Comic sound badge */}
+            <rect x="2" y="4" width="70" height="22" rx="7" fill="#facc15" stroke="#ca8a04" strokeWidth="2" />
+            <text x="8" y="19" fontSize="13" fontWeight="900" fill="#713f12">
+              💨 PUUUM!
+            </text>
+          </svg>
+        </div>
+      )}
+
       {/* Main Character SVG */}
       <svg
         viewBox="0 0 400 500"
-        className={`w-full h-full drop-shadow-xl transition-transform duration-300 ${
+        className={`w-full h-full drop-shadow-xl transition-all duration-200 ${getPoseClass()} ${
           isScrubbing ? 'scale-[1.02] -rotate-1' : ''
         } ${isVictory ? 'scale-105' : ''}`}
       >

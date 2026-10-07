@@ -373,6 +373,68 @@ class SoundManager {
     }
   }
 
+  // Super Loud Thunder Fart with exaggerated comic boom (for dodges!)
+  public playLoudThunderFart() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+
+    // 1. Bass rumble toot
+    const bassOsc = this.ctx.createOscillator();
+    const bassGain = this.ctx.createGain();
+    bassOsc.type = 'sawtooth';
+    bassOsc.frequency.setValueAtTime(130, now);
+    bassOsc.frequency.exponentialRampToValueAtTime(45, now + 0.35);
+
+    bassGain.gain.setValueAtTime(0.35, now);
+    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+    bassOsc.connect(bassGain);
+    bassGain.connect(this.ctx.destination);
+    bassOsc.start(now);
+    bassOsc.stop(now + 0.38);
+
+    // 2. High squeaky rasp
+    const raspOsc = this.ctx.createOscillator();
+    const raspGain = this.ctx.createGain();
+    raspOsc.type = 'square';
+    raspOsc.frequency.setValueAtTime(240, now);
+    raspOsc.frequency.linearRampToValueAtTime(90, now + 0.28);
+
+    raspGain.gain.setValueAtTime(0.25, now);
+    raspGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+    raspOsc.connect(raspGain);
+    raspGain.connect(this.ctx.destination);
+    raspOsc.start(now);
+    raspOsc.stop(now + 0.3);
+  }
+
+  // Towel drying / flapping sound
+  public playTowel() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.linearRampToValueAtTime(320, now + 0.07);
+
+    gain.gain.setValueAtTime(0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.09);
+  }
+
   // Turbo Gas Boost Sound (Exaggerated comic rocket blast)
   public playTurboBoost() {
     if (this.isMuted) return;

@@ -34,7 +34,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStartPhase1, onStart
           <button
             onClick={() => {
               sounds.playClick();
-              onStartPhase1(60);
+              onStartPhase1(65);
             }}
             className="w-full p-3.5 rounded-2xl bg-sky-50 hover:bg-sky-100 border-2 border-sky-300 flex items-center justify-between text-left transition active:scale-98 cursor-pointer shadow-sm group"
           >
@@ -42,8 +42,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStartPhase1, onStart
               <span className="text-3xl group-hover:scale-110 transition-transform">🧼</span>
               <div>
                 <span className="text-xs font-black text-sky-600 uppercase tracking-wide block">Fase 1</span>
-                <span className="text-sm font-black text-sky-950">Hora do Banho!</span>
-                <p className="text-[11px] font-semibold text-slate-500 leading-tight">Sabonete, bucha, água e desodorante 48h</p>
+                <span className="text-sm font-black text-sky-950">Pega o Montanha!</span>
+                <p className="text-[11px] font-semibold text-slate-500 leading-tight">Ele não quer banho: desvia, protege a pança e solta pum!</p>
               </div>
             </div>
             <Play className="w-5 h-5 text-sky-600 fill-current shrink-0" />

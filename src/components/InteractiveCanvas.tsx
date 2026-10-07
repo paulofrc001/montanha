@@ -10,6 +10,9 @@ interface InteractiveCanvasProps {
   isGameOver: boolean;
   isVictory: boolean;
   onCharacterReaction: (reaction: string) => void;
+  offsetX?: number;
+  offsetY?: number;
+  onTryCleanNearMontanha?: () => void;
 }
 
 export const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
@@ -20,12 +23,16 @@ export const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
   isGameOver,
   isVictory,
   onCharacterReaction,
+  offsetX = 0,
+  offsetY = 0,
+  onTryCleanNearMontanha,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isPointerDownRef = useRef<boolean>(false);
   const lastSoundTimeRef = useRef<number>(0);
   const lastReactionTimeRef = useRef<number>(0);
+  const lastDodgeCheckRef = useRef<number>(0);
 
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const [isInteracting, setIsInteracting] = useState<boolean>(false);
@@ -107,22 +114,35 @@ export const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
 
     const now = Date.now();
 
-    // Check collision with zones
+    // Check collision with zones taking Montanha's dynamic offset into account!
+    const shiftPctX = (offsetX / rect.width) * 100;
+    const shiftPctY = (offsetY / rect.height) * 100;
+
     let hitAnyZone = false;
     zones.forEach((zone) => {
-      const dx = relX - zone.x;
-      const dy = relY - zone.y;
+      const zonePosX = zone.x + shiftPctX;
+      const zonePosY = zone.y + shiftPctY;
+
+      const dx = relX - zonePosX;
+      const dy = relY - zonePosY;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       // Interaction radius
-      const threshold = zone.radius * 0.9 + 6;
+      const threshold = zone.radius * 0.95 + 6;
       if (dist < threshold) {
         hitAnyZone = true;
-        // Interaction intensity
         const amount = 0.055;
         onZoneInteract(zone.id, amount);
       }
     });
+
+    // Chance for Montanha to try to dodge when touched
+    if (hitAnyZone && onTryCleanNearMontanha && now - lastDodgeCheckRef.current > 1600) {
+      lastDodgeCheckRef.current = now;
+      if (Math.random() < 0.38) {
+        onTryCleanNearMontanha();
+      }
+    }
 
     // Sound and particle trigger
     if (now - lastSoundTimeRef.current > 75) {
@@ -137,6 +157,9 @@ export const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
       } else if (stage === 'RINSE') {
         sounds.playWaterSplash();
         spawnParticle(x, y, 'water', 7);
+      } else if (stage === 'TOWEL') {
+        sounds.playTowel();
+        spawnParticle(x, y, 'sparkle', 3);
       } else if (stage === 'DEODORANT') {
         sounds.playSpray();
         sounds.playSparkle();
@@ -161,15 +184,23 @@ export const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
           'Ai que alívio, esfrega bem!',
           'Sai sujeira feia!',
           'Tava precisando dessa bucha!',
-          'Xô mosquitada, sai pra lá!',
+          'Minha barriga não!',
         ];
         onCharacterReaction(reactions[Math.floor(Math.random() * reactions.length)]);
       } else if (stage === 'RINSE') {
         const reactions = [
           'Ufa, que água quentinha e boa!',
+          'A água tá gelada!',
           'Lá vai embora a espumolada!',
           'Tô ficando limpinho da silva!',
-          'Que banho refrescante!',
+        ];
+        onCharacterReaction(reactions[Math.floor(Math.random() * reactions.length)]);
+      } else if (stage === 'TOWEL') {
+        const reactions = [
+          'Essa toalha é bem fofinha!',
+          'Seca logo antes que esfrie!',
+          'Tira toda a água das dobras!',
+          'Nossa, que quentinho bom!',
         ];
         onCharacterReaction(reactions[Math.floor(Math.random() * reactions.length)]);
       } else if (stage === 'DEODORANT') {
@@ -182,7 +213,7 @@ export const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
         onCharacterReaction(reactions[Math.floor(Math.random() * reactions.length)]);
       }
     }
-  }, [isGameOver, isVictory, stage, zones, onZoneInteract, spawnParticle, onCharacterReaction]);
+  }, [isGameOver, isVictory, stage, zones, offsetX, offsetY, onZoneInteract, onTryCleanNearMontanha, spawnParticle, onCharacterReaction]);
 
   // Pointer event listeners
   const onPointerDown = (e: React.PointerEvent) => {
@@ -347,6 +378,18 @@ export const InteractiveCanvas: React.FC<InteractiveCanvasProps> = ({
                 💧💧
               </div>
             )}
+          </div>
+        );
+      case 'TOWEL':
+        return (
+          <div className="relative w-16 h-16 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 select-none filter drop-shadow-lg">
+            {/* Fluffy yellow bath towel */}
+            <div className="w-14 h-12 bg-gradient-to-br from-amber-200 via-yellow-300 to-amber-400 rounded-2xl border-2 border-amber-500 flex flex-col items-center justify-center shadow-md transform rotate-[-6deg]">
+              <div className="w-10 h-1 bg-amber-500/30 rounded-full mb-1" />
+              <span className="text-[10px] font-black text-amber-900 tracking-wider">TOALHA</span>
+              <div className="w-10 h-1 bg-amber-500/30 rounded-full mt-1" />
+            </div>
+            <span className="absolute -top-2 -right-1 text-base">🧣</span>
           </div>
         );
       case 'DEODORANT':
